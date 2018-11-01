@@ -13,5 +13,16 @@ namespace IndicadorGefran
     /// </summary>
     public partial class App : Application
     {
+
+        public void ShowAlert(String message)
+        {
+            System.Windows.MessageBox.Show(message, "Alerta", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+
+        public void ShowError(String message)
+        {
+            System.Windows.MessageBox.Show(message, "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+
     }
 }

@@ -1,12 +1,24 @@
-﻿<Window x:Class="IndicadorGefran.MainWindow"
+﻿<Window x:Name="mainForm" x:Class="IndicadorGefran.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:IndicadorGefran"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        
-    </Grid>
+        Title="Indicador Gefran" Height="343.681" Width="660.302">
+    <DockPanel>
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar x:Name="toolbarConnection">
+                <Label x:Name="labelToolbarSerialPorts" Content="Porta"></Label>
+                <ComboBox x:Name="comboboxSerialPorts" Width="120"></ComboBox>
+                <Button x:Name="buttonConnectDisconnect" Click="OnButtonConnectClick">
+                    <Label Content="Conectar"></Label>
+                </Button>
+                <Button x:Name="buttonRefreshSerialPorts">
+                    <Label Content="Atualizar"></Label>
+                </Button>
+            </ToolBar>
+        </ToolBarTray>
+        <Label x:Name="labelMainIndicator" Content="-2563" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" FontSize="72"></Label>
+    </DockPanel>
 </Window>
