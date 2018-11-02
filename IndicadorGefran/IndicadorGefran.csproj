@@ -70,6 +70,7 @@
   <ItemGroup>
     <Compile Include="Model\Exceptions.cs" />
     <Compile Include="Model\Indicator.cs" />
+    <Compile Include="Model\Reading.cs" />
     <Compile Include="Model\SerialPortUtil.cs" />
     <Compile Include="Properties\AssemblyInfo.cs">
       <SubType>Code</SubType>

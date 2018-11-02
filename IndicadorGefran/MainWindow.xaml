@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:IndicadorGefran"
         mc:Ignorable="d"
-        Title="Indicador Gefran" Height="343.681" Width="660.302">
+        Title="Indicador Gefran" Height="397.5" Width="668.8">
     <DockPanel>
         <ToolBarTray DockPanel.Dock="Top">
             <ToolBar x:Name="toolbarConnection">
@@ -19,6 +19,9 @@
                 </Button>
             </ToolBar>
         </ToolBarTray>
-        <Label x:Name="labelMainIndicator" Content="-2563" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold" FontSize="72"></Label>
+        <StackPanel Width="400" VerticalAlignment="Center">
+            <Label x:Name="labelMainIndicator" Content="" FontWeight="Bold" FontSize="72" HorizontalAlignment="Center"></Label>
+            <Label x:Name="labelTime" Content="" FontWeight="Bold" FontSize="24" HorizontalAlignment="Center"></Label>
+        </StackPanel>
     </DockPanel>
 </Window>

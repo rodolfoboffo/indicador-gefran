@@ -5,6 +5,8 @@ using IndicadorGefran.Model.Exceptions;
 using System.Linq;
 using System.Text;
 using System.Timers;
+using System.Windows;
+using System.Collections.Generic;
 
 namespace IndicadorGefran.Model
 {
@@ -16,37 +18,58 @@ namespace IndicadorGefran.Model
         private static byte[] DISPLAY_ADDRESS = new byte[] { 0x03, 0x6F };
 
         private static Indicator instance;
-        private Timer timer;
-        private String value;
+        private Timer readingTimer;
+        private Timer storageTimer;
+        private Storage storage;
+        private Reading reading;
         private SerialPort port;
+        private Boolean ready;
         public event EventHandler ConnectionStateChanged;
         public event EventHandler IndicatorValueChanged;
 
         private Indicator()
         {
-            this.value = String.Empty;
-            this.timer = new Timer(333);
-            this.timer.Elapsed += OnTimerElapsed;
+            this.ready = false;
+            this.storage = new Storage();
+            this.reading = new Reading(String.Empty);
+            this.readingTimer = new Timer(100);
+            this.storageTimer = new Timer(30000);
+            this.readingTimer.Elapsed += OnReadingTimerElapsed;
+            this.storageTimer.Elapsed += OnStorageTimerElapsed;
             this.ConnectionStateChanged += OnIndicatorConnectionStateChanged;
         }
 
-        private void OnTimerElapsed(object sender, ElapsedEventArgs e)
+        private void OnStorageTimerElapsed(object sender, ElapsedEventArgs e)
         {
-            SwitchTimer(false);
+            
+        }
+
+        private void OnReadingTimerElapsed(object sender, ElapsedEventArgs e)
+        {
+            SwitchReadingTimer(false);
             this.ReadDisplayValue();
-            SwitchTimer(this.IsConnected);
+            SwitchReadingTimer(this.IsReady);
         }
 
         private void OnIndicatorConnectionStateChanged(object sender, EventArgs e)
         {
-            SwitchTimer(this.IsConnected);
+            SwitchReadingTimer(this.IsReady);
+            SwitchStorageTimer(this.IsReady);
         }
 
-        private void SwitchTimer(Boolean on)
+        private void SwitchReadingTimer(Boolean on)
         {
-            lock (this.timer)
+            lock (this.readingTimer)
             {
-                this.timer.Enabled = on;
+                this.readingTimer.Enabled = on;
+            }
+        }
+
+        private void SwitchStorageTimer(Boolean on)
+        {
+            lock (this.storageTimer)
+            {
+                this.storageTimer.Enabled = on;
             }
         }
 
@@ -62,20 +85,19 @@ namespace IndicadorGefran.Model
             }
         }
 
-        public String DisplayValue
+        public Reading Reading
         {
             get
             {
-                return this.value;
+                return this.reading;
             }
         }
 
-        public Boolean IsConnected
+        public Boolean IsReady
         {
             get
             {
-                if (this.port == null) return false;
-                return this.port.IsOpen;
+                return this.ready;
             }
         }
 
@@ -99,7 +121,7 @@ namespace IndicadorGefran.Model
             try
             {
                 ExecuteInitializationProtocol(this.port);
-                
+                this.ready = true;
                 this.OnConnectionStateChanged(new EventArgs());
             }
             catch (Exception ex)
@@ -115,12 +137,14 @@ namespace IndicadorGefran.Model
             {
                 byte[] response = ReadAddress(this.port, 1, DISPLAY_ADDRESS, 7);
                 String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
-                this.value = responseString;
+                this.reading = new Reading(responseString);
+                //((App)Application.Current).ShowInfo(this.value);
                 this.OnIndicatorValueChanged(new EventArgs());
                 return responseString;
             }
             catch (Exception ex)
             {
+                ((App)Application.Current).ShowError(ex.Message);
                 Disconnect();
                 throw ex;
             }
@@ -128,10 +152,8 @@ namespace IndicadorGefran.Model
 
         private void ExecuteInitializationProtocol(SerialPort port)
         {
-            OpenPort(port, Parity.Even);
-            ResetSlave(port);
-            port.Close();
-            OpenPort(port, Parity.Odd);
+            if (port.IsOpen)
+                port.Close();
             byte[] response = ReadAddress(port, 1, GEFRAN_ADDRESS, 6);
             String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
             if (!responseString.Equals("GEFRAN")) throw new InvalidResponseFromIndicatorException();
@@ -147,9 +169,13 @@ namespace IndicadorGefran.Model
             port.Open();
         }
 
+        private void OpenPort(SerialPort port)
+        {
+            OpenPort(port, Parity.Even);
+        }
+
         private void ResetSlave(SerialPort port)
         {
-            WriteSerial(RESET_VECTOR, port);
             WriteSerial(RESET_VECTOR, port);
         }
 
@@ -169,9 +195,25 @@ namespace IndicadorGefran.Model
 
         private void WriteAndCheckResponse(SerialPort port, byte[] buffer, Boolean inverse)
         {
+            //StringBuilder builder = new StringBuilder();
+            //builder.Append("Output: ");
+            //for (int i = 0; i < buffer.Length; i++)
+            //{
+            //    builder.Append(buffer[i].ToString("X2"));
+            //    builder.Append(buffer[i].ToString(" "));
+            //}
+            //((App)Application.Current).ShowInfo(builder.ToString());
             byte[] expectedResponse = inverse ? NegateByteArray(buffer) : buffer;
             WriteSerial(buffer, port);
             byte[] response = GetResponse(buffer.Length, port);
+            //builder = new StringBuilder();
+            //builder.Append("Input: ");
+            //for (int i = 0; i < response.Length; i++)
+            //{
+            //    builder.Append(response[i].ToString("X2"));
+            //    builder.Append(response[i].ToString(" "));
+            //}
+            //((App)Application.Current).ShowInfo(builder.ToString());
             if (!response.SequenceEqual(expectedResponse)) throw new InvalidResponseFromIndicatorException();
         }
 
@@ -182,11 +224,26 @@ namespace IndicadorGefran.Model
 
         private byte[] ReadAddress(SerialPort port, int slaveCode, byte[] address, int numBytes)
         {
+            if (port.IsOpen)
+                port.Close();
+            OpenPort(port, Parity.Even);
+            ResetSlave(port);
+            port.Close();
+            OpenPort(port, Parity.Odd);
             SelectSlave(port, slaveCode);
             SendCommandRead(port);
             SendNumberBytes(port, numBytes);
             SendAddress(port, address);
             byte[] response = GetResponse(numBytes, port);
+            //StringBuilder builder = new StringBuilder();
+            //builder.Append("Read Value: ");
+            //for (int i = 0; i < response.Length; i++)
+            //{
+            //    builder.Append(response[i].ToString("X2"));
+            //    builder.Append(response[i].ToString(" "));
+            //}
+            //((App)Application.Current).ShowInfo(builder.ToString());
+            port.Close();
             return response;
         }
 
@@ -235,19 +292,8 @@ namespace IndicadorGefran.Model
 
         public void Disconnect()
         {
-            if (this.port == null) return;
-            if (this.port.IsOpen)
-            {
-                try
-                {
-                    this.port.Close();
-                }
-                finally
-                {
-                    this.port = null;
-                    this.OnConnectionStateChanged(new EventArgs());
-                }
-            }
+            this.ready = false;
+            this.OnConnectionStateChanged(new EventArgs());
         }
 
         protected virtual void OnConnectionStateChanged(EventArgs e)

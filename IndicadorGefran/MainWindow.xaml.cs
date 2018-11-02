@@ -38,7 +38,9 @@ namespace IndicadorGefran
         private void OnIndicatorValueChanged(object sender, EventArgs e)
         {
             Application.Current.Dispatcher.Invoke(new Action(() => {
-                this.labelMainIndicator.Content = Indicator.Instance.DisplayValue;
+                Reading r = Indicator.Instance.Reading;
+                this.labelMainIndicator.Content = r.Value;
+                this.labelTime.Content = r.Time.ToString("HH:mm:ss.ff");
             }));
         }
 
@@ -52,13 +54,13 @@ namespace IndicadorGefran
 
         private void RefreshToolbarState()
         {
-            this.buttonRefreshSerialPorts.IsEnabled = !Indicator.Instance.IsConnected;
-            this.comboboxSerialPorts.IsEnabled = !Indicator.Instance.IsConnected;
+            this.buttonRefreshSerialPorts.IsEnabled = !Indicator.Instance.IsReady;
+            this.comboboxSerialPorts.IsEnabled = !Indicator.Instance.IsReady;
         }
 
         private void RefreshConnectDisconnectButtonLabel()
         {
-            if (Indicator.Instance.IsConnected)
+            if (Indicator.Instance.IsReady)
             {
                 this.buttonConnectDisconnect.Content = "Desconectar";
             }
@@ -84,7 +86,7 @@ namespace IndicadorGefran
         private void OnButtonConnectClick(object sender, RoutedEventArgs e)
         {
             Object selectedItem = this.comboboxSerialPorts.SelectedValue;
-            if (!Indicator.Instance.IsConnected)
+            if (!Indicator.Instance.IsReady)
             {
                 if (selectedItem == null)
                 {

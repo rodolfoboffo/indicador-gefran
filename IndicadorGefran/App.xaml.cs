@@ -16,12 +16,23 @@ namespace IndicadorGefran
 
         public void ShowAlert(String message)
         {
-            System.Windows.MessageBox.Show(message, "Alerta", MessageBoxButton.OK, MessageBoxImage.Warning);
+            Application.Current.Dispatcher.Invoke(new Action(() => {
+                System.Windows.MessageBox.Show(message, "Alerta", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }));
         }
 
         public void ShowError(String message)
         {
-            System.Windows.MessageBox.Show(message, "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+            Application.Current.Dispatcher.Invoke(new Action(() => {
+                System.Windows.MessageBox.Show(message, "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
+            }));
+        }
+
+        public void ShowInfo(String message)
+        {
+            Application.Current.Dispatcher.Invoke(new Action(() => {
+                System.Windows.MessageBox.Show(message, "Informação", MessageBoxButton.OK, MessageBoxImage.Information);
+            }));
         }
 
     }
