@@ -18,6 +18,7 @@ namespace IndicadorGefran.Model
         private static byte[] DISPLAY_ADDRESS = new byte[] { 0x03, 0x6F };
 
         private static Indicator instance;
+        private Boolean terminate;
         private Timer readingTimer;
         private Timer storageTimer;
         private Storage storage;
@@ -30,18 +31,31 @@ namespace IndicadorGefran.Model
         private Indicator()
         {
             this.ready = false;
+            this.terminate = false;
             this.storage = new Storage();
-            this.reading = new Reading(String.Empty);
+            this.reading = null;
             this.readingTimer = new Timer(100);
-            this.storageTimer = new Timer(30000);
+            this.storageTimer = new Timer(3000);
             this.readingTimer.Elapsed += OnReadingTimerElapsed;
             this.storageTimer.Elapsed += OnStorageTimerElapsed;
             this.ConnectionStateChanged += OnIndicatorConnectionStateChanged;
         }
 
+        public int StorageTimerInterval
+        {
+            get
+            {
+                return Convert.ToInt32(this.storageTimer.Interval / 1000);
+            }
+            set
+            {
+                this.storageTimer.Interval = Convert.ToDouble(value*1000);
+            }
+        }
+
         private void OnStorageTimerElapsed(object sender, ElapsedEventArgs e)
         {
-            
+            this.storage.AddReading(this.reading);
         }
 
         private void OnReadingTimerElapsed(object sender, ElapsedEventArgs e)
@@ -84,6 +98,8 @@ namespace IndicadorGefran.Model
                 return instance;
             }
         }
+
+        public Storage Storage { get { return this.storage; } }
 
         public Reading Reading
         {
@@ -144,7 +160,8 @@ namespace IndicadorGefran.Model
             }
             catch (Exception ex)
             {
-                ((App)Application.Current).ShowError(ex.Message);
+                if (!this.terminate)
+                    ((App)Application.Current).ShowError(ex.Message);
                 Disconnect();
                 throw ex;
             }
@@ -294,6 +311,15 @@ namespace IndicadorGefran.Model
         {
             this.ready = false;
             this.OnConnectionStateChanged(new EventArgs());
+        }
+
+        public void Terminate()
+        {
+            this.terminate = true;
+            this.Disconnect();
+            this.port = null;
+            this.readingTimer.Dispose();
+            this.storageTimer.Dispose();
         }
 
         protected virtual void OnConnectionStateChanged(EventArgs e)

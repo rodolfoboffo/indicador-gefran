@@ -1,5 +1,6 @@
 ﻿using IndicadorGefran.Model;
 using IndicadorGefran.Model.Exceptions;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -30,17 +31,45 @@ namespace IndicadorGefran
             InitializeComponent();
             this.app = (App)Application.Current;
             this.Loaded += OnMainWindowLoaded;
+            this.Closing += OnMainWindowClosing;
             Indicator.Instance.ConnectionStateChanged += OnIndicatorConnectionStateChanged;
             Indicator.Instance.IndicatorValueChanged += OnIndicatorValueChanged;
-            RefreshConnectDisconnectButtonLabel();
+            Indicator.Instance.Storage.StorageChanged += OnStorageChanged;
+        }
+
+        private void OnMainWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            Indicator.Instance.Terminate();
+        }
+
+        private void InitializeSliderTimerStorage()
+        {
+            this.sliderTimerStorage.Value = Indicator.Instance.StorageTimerInterval;
+        }
+
+        private void OnStorageChanged(object sender, EventArgs e)
+        {
+            Application.Current.Dispatcher.Invoke(new Action(() => {
+                UpdateListViewStorage();
+            }));
+        }
+
+        private void InitializeListViewStorage()
+        {
+            this.datagridStorage.ItemsSource = Indicator.Instance.Storage.Readings;
+        }
+
+        private void UpdateListViewStorage()
+        {
+            this.datagridStorage.Items.Refresh();
         }
 
         private void OnIndicatorValueChanged(object sender, EventArgs e)
         {
             Application.Current.Dispatcher.Invoke(new Action(() => {
                 Reading r = Indicator.Instance.Reading;
-                this.labelMainIndicator.Content = r.Value;
-                this.labelTime.Content = r.Time.ToString("HH:mm:ss.ff");
+                this.labelMainIndicator.Content = r != null ? r.Value : String.Empty;
+                this.labelTime.Content = r != null ? r.Time.ToString("HH:mm:ss.ff") : String.Empty;
             }));
         }
 
@@ -73,6 +102,9 @@ namespace IndicadorGefran
         private void OnMainWindowLoaded(object sender, RoutedEventArgs e)
         {
             UpdateSerialPortsCombobox();
+            InitializeListViewStorage();
+            InitializeSliderTimerStorage();
+            RefreshConnectDisconnectButtonLabel();
         }
 
         private void UpdateSerialPortsCombobox()
@@ -117,5 +149,27 @@ namespace IndicadorGefran
                 Indicator.Instance.Disconnect();
             }
         }
+
+        private void OnButtonLimparClick(object sender, RoutedEventArgs e)
+        {
+            Indicator.Instance.Storage.Clear();
+        }
+
+        private void OnButtonExportClick(object sender, RoutedEventArgs e)
+        {
+            SaveFileDialog dialog = new SaveFileDialog();
+            dialog.Filter = "Comma-separated Values (*.csv)|*.csv";
+            if (dialog.ShowDialog() == true)
+            {
+                Indicator.Instance.Storage.ExportToCSV(dialog.FileName);
+            }
+        }
+
+        private void OnSliderTimerStorageValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            Indicator.Instance.StorageTimerInterval = Convert.ToInt32(e.NewValue);
+        }
+
+        
     }
 }

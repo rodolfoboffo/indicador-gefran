@@ -19,6 +19,23 @@
                 </Button>
             </ToolBar>
         </ToolBarTray>
+        <DockPanel DockPanel.Dock="Right">
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Limpar" Margin="5" Click="OnButtonLimparClick"></Button>
+                <Button Content="Exportar" Margin="5" Click="OnButtonExportClick"></Button>
+            </StackPanel>
+            <DockPanel DockPanel.Dock="Top" VerticalAlignment="Center">
+                <Label Content="Intervalo" DockPanel.Dock="Left"></Label>
+                <Label Content="{Binding ElementName=sliderTimerStorage, Path=Value, UpdateSourceTrigger=PropertyChanged, StringFormat=\{0:#\}}" DockPanel.Dock="Right" Width="40" HorizontalContentAlignment="Right" IsEnabled="False" />
+                <Slider x:Name="sliderTimerStorage" Value="3" Minimum="1" Maximum="600" TickPlacement="BottomRight" TickFrequency="20" IsSnapToTickEnabled="False" ValueChanged="OnSliderTimerStorageValueChanged"></Slider>
+            </DockPanel>
+            <DataGrid x:Name="datagridStorage" AutoGenerateColumns="False" Width="200" IsReadOnly="True" Margin="5">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Hora" Binding="{Binding Time, StringFormat=\{0:HH:mm:ss.ff\}}" />
+                    <DataGridTextColumn Header="Valor" Binding="{Binding Value}" />
+                </DataGrid.Columns>
+            </DataGrid>
+        </DockPanel>
         <StackPanel Width="400" VerticalAlignment="Center">
             <Label x:Name="labelMainIndicator" Content="" FontWeight="Bold" FontSize="72" HorizontalAlignment="Center"></Label>
             <Label x:Name="labelTime" Content="" FontWeight="Bold" FontSize="24" HorizontalAlignment="Center"></Label>

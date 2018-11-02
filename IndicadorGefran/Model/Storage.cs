@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Linq;
+using System.IO;
+using System.Windows;
 
 namespace IndicadorGefran.Model
 {
@@ -20,6 +23,54 @@ namespace IndicadorGefran.Model
         {
             if (StorageChanged != null)
                 StorageChanged(this, e);
+        }
+
+        public void AddReading(Reading r)
+        {
+            lock (this.readings)
+            {
+                this.readings.Add(r);
+                this.OnStorageChanged(new EventArgs());
+            }
+        }
+
+        public void Clear()
+        {
+            lock (this.readings)
+            {
+                this.readings.Clear();
+                this.OnStorageChanged(new EventArgs());
+            }
+        }
+
+        public List<Reading> Readings
+        {
+            get
+            {
+                return this.readings;
+            }
+        }
+
+        public void ExportToCSV(String fileName)
+        {
+            StringBuilder builder = new StringBuilder();
+            lock (this.readings)
+            {
+                foreach (Reading item in this.readings)
+                {
+                    builder.Append(item.Time.ToString("HH:mm:ss.ff") + ";" + item.Value + "\n");
+                }
+            }
+            try
+            {
+                StreamWriter file = new System.IO.StreamWriter(fileName);
+                file.Write(builder.ToString());
+                file.Close();
+            }
+            catch (Exception ex)
+            {
+                ((App)Application.Current).ShowError(ex.Message);
+            }
         }
     }
 }
