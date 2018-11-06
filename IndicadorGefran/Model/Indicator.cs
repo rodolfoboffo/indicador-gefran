@@ -18,12 +18,14 @@ namespace IndicadorGefran.Model
         private static byte[] DISPLAY_ADDRESS = new byte[] { 0x03, 0x6F };
 
         private static Indicator instance;
+        private DateTime initialTime;
         private Boolean terminate;
         private Timer readingTimer;
         private Timer storageTimer;
         private Storage storage;
         private Reading reading;
         private SerialPort port;
+        private int baudRate;
         private Boolean ready;
         public event EventHandler ConnectionStateChanged;
         public event EventHandler IndicatorValueChanged;
@@ -31,6 +33,7 @@ namespace IndicadorGefran.Model
         private Indicator()
         {
             this.ready = false;
+            this.baudRate = 9600;
             this.terminate = false;
             this.storage = new Storage();
             this.reading = null;
@@ -39,6 +42,12 @@ namespace IndicadorGefran.Model
             this.readingTimer.Elapsed += OnReadingTimerElapsed;
             this.storageTimer.Elapsed += OnStorageTimerElapsed;
             this.ConnectionStateChanged += OnIndicatorConnectionStateChanged;
+            this.RestartClock();
+        }
+
+        public void RestartClock()
+        {
+            this.initialTime = DateTime.Now;
         }
 
         public int StorageTimerInterval
@@ -129,14 +138,16 @@ namespace IndicadorGefran.Model
             }
         }
 
-        public void Initialize(String portName)
+        public void Initialize(String portName, int baudRate)
         {
             if (!SerialPortUtil.Instance.IsPortAvailable(portName))
                 throw new SerialPortInvalidException();
             this.port = SerialPortUtil.Instance.GetSerialPort(portName);
+            this.baudRate = baudRate;
             try
             {
-                ExecuteInitializationProtocol(this.port);
+                ExecuteInitializationProtocol(this.port, this.baudRate);
+                this.RestartClock();
                 this.ready = true;
                 this.OnConnectionStateChanged(new EventArgs());
             }
@@ -151,9 +162,9 @@ namespace IndicadorGefran.Model
         {
             try
             {
-                byte[] response = ReadAddress(this.port, 1, DISPLAY_ADDRESS, 7);
+                byte[] response = ReadAddress(this.port, this.baudRate, 1, DISPLAY_ADDRESS, 7);
                 String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
-                this.reading = new Reading(responseString);
+                this.reading = new Reading(responseString, this.initialTime);
                 //((App)Application.Current).ShowInfo(this.value);
                 this.OnIndicatorValueChanged(new EventArgs());
                 return responseString;
@@ -167,28 +178,28 @@ namespace IndicadorGefran.Model
             }
         }
 
-        private void ExecuteInitializationProtocol(SerialPort port)
+        private void ExecuteInitializationProtocol(SerialPort port, int baudRate)
         {
             if (port.IsOpen)
                 port.Close();
-            byte[] response = ReadAddress(port, 1, GEFRAN_ADDRESS, 6);
+            byte[] response = ReadAddress(port, baudRate, 1, GEFRAN_ADDRESS, 6);
             String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
             if (!responseString.Equals("GEFRAN")) throw new InvalidResponseFromIndicatorException();
         }
 
-        private void OpenPort(SerialPort port, Parity parity)
+        private void OpenPort(SerialPort port, int baudRate, Parity parity)
         {
             port.ReadTimeout = 1000;
-            port.BaudRate = 9600;
+            port.BaudRate = baudRate;
             port.DataBits = 8;
             port.StopBits = StopBits.One;
             port.Parity = parity;
             port.Open();
         }
 
-        private void OpenPort(SerialPort port)
+        private void OpenPort(SerialPort port, int baudRate)
         {
-            OpenPort(port, Parity.Even);
+            OpenPort(port, baudRate, Parity.Even);
         }
 
         private void ResetSlave(SerialPort port)
@@ -239,14 +250,14 @@ namespace IndicadorGefran.Model
             WriteAndCheckResponse(port, READ_COMMAND_VECTOR, true);
         }
 
-        private byte[] ReadAddress(SerialPort port, int slaveCode, byte[] address, int numBytes)
+        private byte[] ReadAddress(SerialPort port, int baudRate, int slaveCode, byte[] address, int numBytes)
         {
             if (port.IsOpen)
                 port.Close();
-            OpenPort(port, Parity.Even);
+            OpenPort(port, baudRate, Parity.Even);
             ResetSlave(port);
             port.Close();
-            OpenPort(port, Parity.Odd);
+            OpenPort(port, baudRate, Parity.Odd);
             SelectSlave(port, slaveCode);
             SendCommandRead(port);
             SendNumberBytes(port, numBytes);

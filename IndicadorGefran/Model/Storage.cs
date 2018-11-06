@@ -58,7 +58,7 @@ namespace IndicadorGefran.Model
             {
                 foreach (Reading item in this.readings)
                 {
-                    builder.Append(item.Time.ToString("HH:mm:ss.ff") + ";" + item.Value + "\n");
+                    builder.Append(String.Format("{0:#0.000}", item.Time.TotalMilliseconds*1000) + ";" + item.Value + "\n");
                 }
             }
             try

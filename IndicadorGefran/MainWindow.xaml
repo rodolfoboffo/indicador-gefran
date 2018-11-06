@@ -11,6 +11,9 @@
             <ToolBar x:Name="toolbarConnection">
                 <Label x:Name="labelToolbarSerialPorts" Content="Porta"></Label>
                 <ComboBox x:Name="comboboxSerialPorts" Width="120"></ComboBox>
+                <Label x:Name="labelToolbarBaudRate" Content="Taxa de transmissão"></Label>
+                <ComboBox x:Name="comboboxBaudrates" Width="120">
+                </ComboBox>
                 <Button x:Name="buttonConnectDisconnect" Click="OnButtonConnectClick">
                     <Label Content="Conectar"></Label>
                 </Button>
@@ -26,7 +29,7 @@
             </StackPanel>
             <DockPanel DockPanel.Dock="Top" VerticalAlignment="Center">
                 <Label Content="Intervalo" DockPanel.Dock="Left"></Label>
-                <Label Content="{Binding ElementName=sliderTimerStorage, Path=Value, UpdateSourceTrigger=PropertyChanged, StringFormat=\{0:#\}}" DockPanel.Dock="Right" Width="40" HorizontalContentAlignment="Right" IsEnabled="False" />
+                <Label x:Name="labelSliderTimerStorageValue" Content="" DockPanel.Dock="Right" Width="40" HorizontalContentAlignment="Right" IsEnabled="False" />
                 <Slider x:Name="sliderTimerStorage" Value="3" Minimum="1" Maximum="600" TickPlacement="BottomRight" TickFrequency="20" IsSnapToTickEnabled="False" ValueChanged="OnSliderTimerStorageValueChanged"></Slider>
             </DockPanel>
             <DataGrid x:Name="datagridStorage" AutoGenerateColumns="False" Width="200" IsReadOnly="True" Margin="5">

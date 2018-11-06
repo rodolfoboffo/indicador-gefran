@@ -69,7 +69,7 @@ namespace IndicadorGefran
             Application.Current.Dispatcher.Invoke(new Action(() => {
                 Reading r = Indicator.Instance.Reading;
                 this.labelMainIndicator.Content = r != null ? r.Value : String.Empty;
-                this.labelTime.Content = r != null ? r.Time.ToString("HH:mm:ss.ff") : String.Empty;
+                this.labelTime.Content = r != null ? String.Format("{0:#0.000}", r.Time.TotalMilliseconds * 1000) : String.Empty;
             }));
         }
 
@@ -85,6 +85,7 @@ namespace IndicadorGefran
         {
             this.buttonRefreshSerialPorts.IsEnabled = !Indicator.Instance.IsReady;
             this.comboboxSerialPorts.IsEnabled = !Indicator.Instance.IsReady;
+            this.comboboxBaudrates.IsEnabled = !Indicator.Instance.IsReady;
         }
 
         private void RefreshConnectDisconnectButtonLabel()
@@ -102,9 +103,18 @@ namespace IndicadorGefran
         private void OnMainWindowLoaded(object sender, RoutedEventArgs e)
         {
             UpdateSerialPortsCombobox();
+            UpdateBaudRatesCombobox();
             InitializeListViewStorage();
             InitializeSliderTimerStorage();
             RefreshConnectDisconnectButtonLabel();
+        }
+
+        private void UpdateBaudRatesCombobox()
+        {
+            int[] baudrates = new int[] { 9600, 19200, 38400 };
+            for (int i = 0; i < baudrates.Length; i++)
+                this.comboboxBaudrates.Items.Add(baudrates[i]);
+            this.comboboxBaudrates.SelectedIndex = 0;
         }
 
         private void UpdateSerialPortsCombobox()
@@ -117,10 +127,11 @@ namespace IndicadorGefran
 
         private void OnButtonConnectClick(object sender, RoutedEventArgs e)
         {
-            Object selectedItem = this.comboboxSerialPorts.SelectedValue;
+            Object selectedPortName = this.comboboxSerialPorts.SelectedValue;
+            int selectedBaudrate = (int)this.comboboxBaudrates.SelectedValue;
             if (!Indicator.Instance.IsReady)
             {
-                if (selectedItem == null)
+                if (selectedPortName == null)
                 {
                     this.app.ShowAlert("Selecione uma porta serial.");
                     return;
@@ -128,7 +139,7 @@ namespace IndicadorGefran
                 try
                 {
                     this.buttonConnectDisconnect.IsEnabled = false;
-                    Indicator.Instance.Initialize(selectedItem.ToString());
+                    Indicator.Instance.Initialize(selectedPortName.ToString(), selectedBaudrate);
                 }
                 catch (SerialPortInvalidException)
                 {
@@ -153,6 +164,7 @@ namespace IndicadorGefran
         private void OnButtonLimparClick(object sender, RoutedEventArgs e)
         {
             Indicator.Instance.Storage.Clear();
+            Indicator.Instance.RestartClock();
         }
 
         private void OnButtonExportClick(object sender, RoutedEventArgs e)
@@ -168,6 +180,7 @@ namespace IndicadorGefran
         private void OnSliderTimerStorageValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             Indicator.Instance.StorageTimerInterval = Convert.ToInt32(e.NewValue);
+            this.labelSliderTimerStorageValue.Content = Convert.ToInt32(e.NewValue) + " s";
         }
 
         

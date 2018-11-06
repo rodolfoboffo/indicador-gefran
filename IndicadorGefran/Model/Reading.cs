@@ -9,18 +9,18 @@ namespace IndicadorGefran.Model
     public class Reading : ICloneable
     {
         private readonly String value;
-        private readonly DateTime time;
+        private readonly TimeSpan time;
 
-        public Reading(String value) : this(value, DateTime.Now) { }
+        public Reading(String value, DateTime initialTime) : this(value, DateTime.Now.Subtract(initialTime)) { }
 
-        public Reading(String value, DateTime time)
+        public Reading(String value, TimeSpan time)
         {
             this.value = value;
             this.time = time;
         }
 
         public String Value { get { return this.value; } }
-        public DateTime Time { get { return this.time; } }
+        public TimeSpan Time { get { return this.time; } }
 
         public object Clone()
         {
