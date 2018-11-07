@@ -69,7 +69,7 @@ namespace IndicadorGefran
             Application.Current.Dispatcher.Invoke(new Action(() => {
                 Reading r = Indicator.Instance.Reading;
                 this.labelMainIndicator.Content = r != null ? r.Value : String.Empty;
-                this.labelTime.Content = r != null ? String.Format("{0:#0.000}", r.Time.TotalMilliseconds * 1000) : String.Empty;
+                this.labelTime.Content = r != null ? r.DisplayTime : String.Empty;
             }));
         }
 

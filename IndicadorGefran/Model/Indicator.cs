@@ -16,6 +16,7 @@ namespace IndicadorGefran.Model
         private static byte[] READ_COMMAND_VECTOR = new byte[] { 0x00 };
         private static byte[] GEFRAN_ADDRESS = new byte[] { 0x02, 0x82 };
         private static byte[] DISPLAY_ADDRESS = new byte[] { 0x03, 0x6F };
+        private static byte[] ABSOLUTE_COUNT_ADDRESS = new byte[] { 0x03, 0x1A };
 
         private static Indicator instance;
         private DateTime initialTime;
@@ -37,7 +38,7 @@ namespace IndicadorGefran.Model
             this.terminate = false;
             this.storage = new Storage();
             this.reading = null;
-            this.readingTimer = new Timer(100);
+            this.readingTimer = new Timer(1);
             this.storageTimer = new Timer(3000);
             this.readingTimer.Elapsed += OnReadingTimerElapsed;
             this.storageTimer.Elapsed += OnStorageTimerElapsed;
@@ -70,7 +71,7 @@ namespace IndicadorGefran.Model
         private void OnReadingTimerElapsed(object sender, ElapsedEventArgs e)
         {
             SwitchReadingTimer(false);
-            this.ReadDisplayValue();
+            this.ReaAbsoluteCountValue();
             SwitchReadingTimer(this.IsReady);
         }
 
@@ -162,8 +163,29 @@ namespace IndicadorGefran.Model
         {
             try
             {
-                byte[] response = ReadAddress(this.port, this.baudRate, 1, DISPLAY_ADDRESS, 7);
+                byte[] response = ReadAddress(this.port, this.baudRate, DISPLAY_ADDRESS, 7);
                 String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
+                this.reading = new Reading(responseString, this.initialTime);
+                //((App)Application.Current).ShowInfo(this.value);
+                this.OnIndicatorValueChanged(new EventArgs());
+                return responseString;
+            }
+            catch (Exception ex)
+            {
+                if (!this.terminate)
+                    ((App)Application.Current).ShowError(ex.Message);
+                Disconnect();
+                throw ex;
+            }
+        }
+
+        public String ReaAbsoluteCountValue()
+        {
+            try
+            {
+                byte[] response = ReadAddress(this.port, this.baudRate, ABSOLUTE_COUNT_ADDRESS, 4);
+                int value = BitConverter.ToInt32(response.Reverse().ToArray(), 0);
+                String responseString = Convert.ToString(value);
                 this.reading = new Reading(responseString, this.initialTime);
                 //((App)Application.Current).ShowInfo(this.value);
                 this.OnIndicatorValueChanged(new EventArgs());
@@ -182,7 +204,12 @@ namespace IndicadorGefran.Model
         {
             if (port.IsOpen)
                 port.Close();
-            byte[] response = ReadAddress(port, baudRate, 1, GEFRAN_ADDRESS, 6);
+            OpenPort(port, baudRate, Parity.Even);
+            ResetSlave(port);
+            port.Close();
+            OpenPort(port, baudRate, Parity.Odd);
+            SelectSlave(port, 1);
+            byte[] response = ReadAddress(port, baudRate, GEFRAN_ADDRESS, 6);
             String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
             if (!responseString.Equals("GEFRAN")) throw new InvalidResponseFromIndicatorException();
         }
@@ -250,15 +277,8 @@ namespace IndicadorGefran.Model
             WriteAndCheckResponse(port, READ_COMMAND_VECTOR, true);
         }
 
-        private byte[] ReadAddress(SerialPort port, int baudRate, int slaveCode, byte[] address, int numBytes)
+        private byte[] ReadAddress(SerialPort port, int baudRate, byte[] address, int numBytes)
         {
-            if (port.IsOpen)
-                port.Close();
-            OpenPort(port, baudRate, Parity.Even);
-            ResetSlave(port);
-            port.Close();
-            OpenPort(port, baudRate, Parity.Odd);
-            SelectSlave(port, slaveCode);
             SendCommandRead(port);
             SendNumberBytes(port, numBytes);
             SendAddress(port, address);
@@ -271,7 +291,6 @@ namespace IndicadorGefran.Model
             //    builder.Append(response[i].ToString(" "));
             //}
             //((App)Application.Current).ShowInfo(builder.ToString());
-            port.Close();
             return response;
         }
 
@@ -321,6 +340,8 @@ namespace IndicadorGefran.Model
         public void Disconnect()
         {
             this.ready = false;
+            if (this.port != null && this.port.IsOpen)
+                this.port.Close();
             this.OnConnectionStateChanged(new EventArgs());
         }
 

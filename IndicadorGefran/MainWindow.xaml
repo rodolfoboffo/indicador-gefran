@@ -34,7 +34,7 @@
             </DockPanel>
             <DataGrid x:Name="datagridStorage" AutoGenerateColumns="False" Width="200" IsReadOnly="True" Margin="5">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Hora" Binding="{Binding Time, StringFormat=\{0:HH:mm:ss.ff\}}" />
+                    <DataGridTextColumn Header="Tempo" Binding="{Binding DisplayTime, StringFormat=\{0:#0.000\}}" />
                     <DataGridTextColumn Header="Valor" Binding="{Binding Value}" />
                 </DataGrid.Columns>
             </DataGrid>

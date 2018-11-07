@@ -22,6 +22,8 @@ namespace IndicadorGefran.Model
         public String Value { get { return this.value; } }
         public TimeSpan Time { get { return this.time; } }
 
+        public String DisplayTime { get { return String.Format("{0:#0.000}", this.Time.TotalMilliseconds / 1000.0); } }
+
         public object Clone()
         {
             return new Reading(this.Value, this.Time);
