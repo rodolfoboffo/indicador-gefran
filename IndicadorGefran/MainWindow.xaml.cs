@@ -42,11 +42,6 @@ namespace IndicadorGefran
             Indicator.Instance.Terminate();
         }
 
-        private void InitializeSliderTimerStorage()
-        {
-            this.sliderTimerStorage.Value = Indicator.Instance.StorageTimerInterval;
-        }
-
         private void OnStorageChanged(object sender, EventArgs e)
         {
             Application.Current.Dispatcher.Invoke(new Action(() => {
@@ -105,8 +100,41 @@ namespace IndicadorGefran
             UpdateSerialPortsCombobox();
             UpdateBaudRatesCombobox();
             InitializeListViewStorage();
-            InitializeSliderTimerStorage();
+            InitializeTextBoxStorageInterval();
             RefreshConnectDisconnectButtonLabel();
+        }
+
+        private void InitializeTextBoxStorageInterval()
+        {
+            this.UpdateTextBoxStorageInterval();
+            this.textBoxStorageTimerInterval.LostFocus += OnTextBoxStorageTimerIntervalLostFocus;
+            this.textBoxStorageTimerInterval.TextChanged += TextBoxStorageTimerInterval_TextChanged;
+        }
+
+        private void TextBoxStorageTimerInterval_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ChangeStprageInterval();
+        }
+
+        private void UpdateTextBoxStorageInterval()
+        {
+            this.textBoxStorageTimerInterval.Text = (Indicator.Instance.StorageTimerInterval).ToString("#0");
+        }
+
+        private void OnTextBoxStorageTimerIntervalLostFocus(object sender, RoutedEventArgs e)
+        {
+            ChangeStprageInterval();
+        }
+
+        private void ChangeStprageInterval()
+        {
+            int newInterval = 0;
+            int.TryParse(this.textBoxStorageTimerInterval.Text, out newInterval);
+            if (newInterval > 0)
+            {
+                Indicator.Instance.StorageTimerInterval = newInterval;
+            }
+            this.UpdateTextBoxStorageInterval();
         }
 
         private void UpdateBaudRatesCombobox()
@@ -114,7 +142,7 @@ namespace IndicadorGefran
             int[] baudrates = new int[] { 9600, 19200, 38400 };
             for (int i = 0; i < baudrates.Length; i++)
                 this.comboboxBaudrates.Items.Add(baudrates[i]);
-            this.comboboxBaudrates.SelectedIndex = 0;
+            this.comboboxBaudrates.SelectedIndex = 1;
         }
 
         private void UpdateSerialPortsCombobox()
@@ -157,7 +185,7 @@ namespace IndicadorGefran
             }
             else
             {
-                Indicator.Instance.Disconnect();
+                Indicator.Instance.Stop();
             }
         }
 
@@ -176,13 +204,5 @@ namespace IndicadorGefran
                 Indicator.Instance.Storage.ExportToCSV(dialog.FileName);
             }
         }
-
-        private void OnSliderTimerStorageValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            Indicator.Instance.StorageTimerInterval = Convert.ToInt32(e.NewValue);
-            this.labelSliderTimerStorageValue.Content = Convert.ToInt32(e.NewValue) + " s";
-        }
-
-        
     }
 }

@@ -20,22 +20,18 @@ namespace IndicadorGefran.Model
 
         private static Indicator instance;
         private DateTime initialTime;
-        private Boolean terminate;
         private Timer readingTimer;
         private Timer storageTimer;
         private Storage storage;
         private Reading reading;
         private SerialPort port;
         private int baudRate;
-        private Boolean ready;
         public event EventHandler ConnectionStateChanged;
         public event EventHandler IndicatorValueChanged;
 
         private Indicator()
         {
-            this.ready = false;
             this.baudRate = 9600;
-            this.terminate = false;
             this.storage = new Storage();
             this.reading = null;
             this.readingTimer = new Timer(1);
@@ -68,10 +64,19 @@ namespace IndicadorGefran.Model
             this.storage.AddReading(this.reading);
         }
 
+        private void AddReadingIntoStorage()
+        {
+            this.SwitchStorageTimer(false);
+            this.storage.AddReading(this.reading);
+            this.SwitchStorageTimer(this.IsReady);
+        }
+
         private void OnReadingTimerElapsed(object sender, ElapsedEventArgs e)
         {
             SwitchReadingTimer(false);
             this.ReaAbsoluteCountValue();
+            if (this.Storage.Readings.Count == 0)
+                this.AddReadingIntoStorage();
             SwitchReadingTimer(this.IsReady);
         }
 
@@ -123,7 +128,7 @@ namespace IndicadorGefran.Model
         {
             get
             {
-                return this.ready;
+                return this.port != null && this.port.IsOpen;
             }
         }
 
@@ -149,12 +154,11 @@ namespace IndicadorGefran.Model
             {
                 ExecuteInitializationProtocol(this.port, this.baudRate);
                 this.RestartClock();
-                this.ready = true;
                 this.OnConnectionStateChanged(new EventArgs());
             }
             catch (Exception ex)
             {
-                Disconnect();
+                Stop();
                 throw ex;
             }
         }
@@ -172,9 +176,7 @@ namespace IndicadorGefran.Model
             }
             catch (Exception ex)
             {
-                if (!this.terminate)
-                    ((App)Application.Current).ShowError(ex.Message);
-                Disconnect();
+                Stop();
                 throw ex;
             }
         }
@@ -193,9 +195,7 @@ namespace IndicadorGefran.Model
             }
             catch (Exception ex)
             {
-                if (!this.terminate)
-                    ((App)Application.Current).ShowError(ex.Message);
-                Disconnect();
+                Stop();
                 throw ex;
             }
         }
@@ -337,21 +337,22 @@ namespace IndicadorGefran.Model
             port.Write(buffer, 0, buffer.Length);
         }
 
-        public void Disconnect()
+        public void Stop()
         {
-            this.ready = false;
-            if (this.port != null && this.port.IsOpen)
-                this.port.Close();
+            SerialPort p = this.port;
+            this.port = null;
+            if (p != null && p.IsOpen)
+                p.Close();
+            SwitchReadingTimer(false);
+            SwitchStorageTimer(false);
             this.OnConnectionStateChanged(new EventArgs());
         }
 
         public void Terminate()
         {
-            this.terminate = true;
-            this.Disconnect();
-            this.port = null;
-            this.readingTimer.Dispose();
-            this.storageTimer.Dispose();
+            this.Stop();
+            //this.readingTimer.Dispose();
+            //this.storageTimer.Dispose();
         }
 
         protected virtual void OnConnectionStateChanged(EventArgs e)
