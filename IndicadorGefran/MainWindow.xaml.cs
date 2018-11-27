@@ -4,6 +4,7 @@ using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -35,6 +36,9 @@ namespace IndicadorGefran
             Indicator.Instance.ConnectionStateChanged += OnIndicatorConnectionStateChanged;
             Indicator.Instance.IndicatorValueChanged += OnIndicatorValueChanged;
             Indicator.Instance.Storage.StorageChanged += OnStorageChanged;
+            Version version = Assembly.GetExecutingAssembly().GetName().Version;
+            this.Title = String.Format("Software para coleta de tempo e deslocamento_Indicador Gefran 2351 - {0}.{1} - rev. {2}",
+                version.Major, version.Minor, version.MinorRevision);
         }
 
         private void OnMainWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
