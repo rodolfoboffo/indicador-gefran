@@ -37,7 +37,7 @@ namespace IndicadorGefran
             Indicator.Instance.IndicatorValueChanged += OnIndicatorValueChanged;
             Indicator.Instance.Storage.StorageChanged += OnStorageChanged;
             Version version = Assembly.GetExecutingAssembly().GetName().Version;
-            this.Title = String.Format("Software para coleta de tempo e deslocamento_Indicador Gefran 2351 - {0}.{1} - rev. {2}",
+            this.Title = String.Format("Software para coleta de tempo e deslocamento Indicador Gefran 2351 - rev. {2}",
                 version.Major, version.Minor, version.MinorRevision);
         }
 
