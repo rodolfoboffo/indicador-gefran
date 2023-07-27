@@ -16,7 +16,7 @@ namespace IndicadorGefran
         public static SerialPortUtil Instance
         {
             get {
-                if (instance is null)
+                if (instance == null)
                 {
                     instance = new SerialPortUtil();
                 }

@@ -106,7 +106,7 @@ namespace IndicadorGefran.Model
         {
             get
             {
-                if (instance is null)
+                if (instance == null)
                 {
                     instance = new Indicator();
                 }
