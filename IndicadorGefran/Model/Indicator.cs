@@ -206,7 +206,8 @@ namespace IndicadorGefran.Model
                 ClosePort(port);
             OpenPort(port, baudRate, Parity.Even);
             ResetSlave(port);
-            SetPortParity(port, Parity.Odd);
+            ClosePort(port);
+            OpenPort(port, baudRate, Parity.Odd);
             SelectSlave(port, 1);
             byte[] response = ReadAddress(port, baudRate, GEFRAN_ADDRESS, 6);
             String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
@@ -222,14 +223,6 @@ namespace IndicadorGefran.Model
             port.Parity = parity;
             port.Open();
             SerialPortLogger.Instance.LogPortOpened(port);
-        }
-
-        private void SetPortParity(ISerialPortTransport port, Parity parity)
-        {
-            if (port.Parity != parity)
-            {
-                port.Parity = parity;
-            }
         }
 
         private void ClosePort(ISerialPortTransport port)
