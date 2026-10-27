@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.IO.Ports;
 using System.Linq;
+using IndicadorGefran.Model;
 
 namespace IndicadorGefran
 {
@@ -33,10 +35,12 @@ namespace IndicadorGefran
             }
         }
 
-        public SerialPort GetSerialPort(String portName)
+        public ISerialPortTransport GetSerialPort(String portName)
         {
-            SerialPort p = new SerialPort(portName);
-            return p;
+            String transport = ConfigurationManager.AppSettings["SerialTransport"];
+            if (String.Equals(transport, "Win32", StringComparison.OrdinalIgnoreCase))
+                return new Win32SerialPortTransport(portName);
+            return new ManagedSerialPortTransport(portName);
         }
 
         public Boolean IsPortAvailable(String portName)

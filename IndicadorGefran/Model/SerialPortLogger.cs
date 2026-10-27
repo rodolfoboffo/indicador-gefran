@@ -56,24 +56,24 @@ namespace IndicadorGefran.Model
             }
         }
 
-        public void LogPortOpened(SerialPort port)
+        public void LogPortOpened(ISerialPortTransport port)
         {
             WriteLine("[OPEN] ", DescribePort(port));
         }
 
-        public void LogPortClosed(SerialPort port)
+        public void LogPortClosed(ISerialPortTransport port)
         {
             WriteLine("[CLOSE]", DescribePort(port));
         }
 
-        public void LogBytesSent(SerialPort port, byte[] bytes)
+        public void LogBytesSent(ISerialPortTransport port, byte[] bytes)
         {
-            WriteLine("[TX]   ", DescribePort(port) + " Bytes=" + FormatHex(bytes));
+            WriteLine("[TX]   ", DescribePort(port) + " Bytes=" + FormatHex(bytes, null));
         }
 
-        public void LogBytesReceived(SerialPort port, byte[] bytes)
+        public void LogBytesReceived(ISerialPortTransport port, byte[] bytes, bool[] parityErrors)
         {
-            WriteLine("[RX]   ", DescribePort(port) + " Bytes=" + FormatHex(bytes));
+            WriteLine("[RX]   ", DescribePort(port) + " Bytes=" + FormatHex(bytes, parityErrors));
         }
 
         private void WriteLine(String tag, String message)
@@ -88,7 +88,7 @@ namespace IndicadorGefran.Model
             }
         }
 
-        private static String DescribePort(SerialPort port)
+        private static String DescribePort(ISerialPortTransport port)
         {
             return String.Join(",", port.PortName, port.BaudRate.ToString(), DescribeParity(port.Parity), DescribeStopBits(port.StopBits));
         }
@@ -116,9 +116,10 @@ namespace IndicadorGefran.Model
             }
         }
 
-        private static String FormatHex(byte[] bytes)
+        private static String FormatHex(byte[] bytes, bool[] parityErrors)
         {
-            return String.Join(" ", bytes.Select(b => b.ToString("X2")));
+            return String.Join(" ", bytes.Select((b, i) =>
+                b.ToString("X2") + (parityErrors != null && parityErrors[i] ? "*" : "")));
         }
     }
 }
