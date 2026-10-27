@@ -143,7 +143,8 @@ namespace IndicadorGefran
 
         private void UpdateBaudRatesCombobox()
         {
-            int[] baudrates = new int[] { 9600, 19200, 38400 };
+            int[] baudrates = new int[] { 1200, 2400, 4800, 
+                9600, 19200, 38400 };
             for (int i = 0; i < baudrates.Length; i++)
                 this.comboboxBaudrates.Items.Add(baudrates[i]);
             this.comboboxBaudrates.SelectedIndex = 1;
