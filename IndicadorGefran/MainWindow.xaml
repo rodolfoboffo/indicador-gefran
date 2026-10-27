@@ -27,6 +27,8 @@
                         IsEnabled="{Binding IsConnectionSettingsEditable}">
                     <Label Content="Atualizar"></Label>
                 </Button>
+                <CheckBox x:Name="checkboxSerialLogging" Content="Log da porta serial" VerticalAlignment="Center" Margin="10,0,0,0"
+                          IsChecked="{Binding IsSerialLoggingEnabled}"></CheckBox>
             </ToolBar>
         </ToolBarTray>
         <DockPanel DockPanel.Dock="Right">

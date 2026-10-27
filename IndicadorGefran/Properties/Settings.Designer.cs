@@ -22,5 +22,16 @@ namespace IndicadorGefran.Properties {
                 return defaultInstance;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool SerialPortLoggingEnabled {
+            get {
+                return ((bool)(this["SerialPortLoggingEnabled"]));
+            }
+            set {
+                this["SerialPortLoggingEnabled"] = value;
+            }
+        }
     }
 }

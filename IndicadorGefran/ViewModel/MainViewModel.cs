@@ -46,6 +46,8 @@ namespace IndicadorGefran.ViewModel
             this.selectedBaudRate = this.BaudRates[1];
             RefreshConnectionDependentState();
             RefreshStorageIntervalText();
+
+            SerialPortLogger.Instance.Enabled = Properties.Settings.Default.SerialPortLoggingEnabled;
         }
 
         public ObservableCollection<String> SerialPortNames { get; }
@@ -93,6 +95,18 @@ namespace IndicadorGefran.ViewModel
         {
             get { return this.currentTime; }
             private set { SetProperty(ref this.currentTime, value); }
+        }
+
+        public bool IsSerialLoggingEnabled
+        {
+            get { return SerialPortLogger.Instance.Enabled; }
+            set
+            {
+                SerialPortLogger.Instance.Enabled = value;
+                Properties.Settings.Default.SerialPortLoggingEnabled = value;
+                Properties.Settings.Default.Save();
+                OnPropertyChanged();
+            }
         }
 
         public String StorageIntervalText
@@ -214,6 +228,7 @@ namespace IndicadorGefran.ViewModel
         public void OnWindowClosing()
         {
             Indicator.Instance.Terminate();
+            SerialPortLogger.Instance.Enabled = false;
         }
     }
 }

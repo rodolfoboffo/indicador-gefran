@@ -17,6 +17,8 @@ dotnet run
 
 Também abre e builda normalmente no Visual Studio (F5).
 
+`dotnet build` não roda os custom tools de `Resources.resx`/`Settings.settings` (isso só acontece dentro do Visual Studio) — então `Properties/Resources.Designer.cs` e `Properties/Settings.Designer.cs` precisam ser editados manualmente junto com o `.resx`/`.settings` correspondente quando adicionar/alterar recursos ou settings.
+
 ## Arquitetura
 
 Única janela (`MainWindow`), em MVVM manual (sem biblioteca externa — INotifyPropertyChanged/ICommand implementados à mão). A lógica de domínio fica isolada em `Model/`, acessada via singletons:
@@ -29,6 +31,7 @@ Também abre e builda normalmente no Visual Studio (F5).
 - **`Model/Storage.cs`** — lista thread-safe (`lock`) de `Reading`s coletadas; notifica `StorageChanged`; exporta para CSV (`;` como separador). Não depende mais de WPF/`Application` — erros de I/O no export propagam para quem chamar `ExportToCSV`.
 - **`Model/Reading.cs`** — par imutável (valor lido, tempo decorrido desde o início da coleta).
 - **`Model/Exceptions.cs`** — exceções de domínio com mensagens em português já definidas na própria exceção (`SerialPortInvalidException`, `NoResponseFromIndicatorException`, `InvalidResponseFromIndicatorException`, `IndicatorNotReadyException`).
+- **`Model/SerialPortLogger.cs`** (`SerialPortLogger.Instance`) — logger de debug opcional para I/O da porta serial. Quando `Enabled`, abre um `StreamWriter` em `serialport_<yyyyMMdd_HHmmss>.log` (pasta do executável, `AppDomain.CurrentDomain.BaseDirectory`) e registra, com timestamp UTC: abertura/fechamento de porta e bytes enviados/recebidos em hex — sempre acompanhados da config da porta no formato `Porta,BaudRate,Paridade,StopBits` (ex.: `COM3,9600,E,1`). Instrumentado dentro de `Indicator.OpenPort`/`ClosePort`/`WriteSerial`/`GetResponse`, então cobre toda a comunicação sem precisar tocar nos métodos de protocolo (`ReadAddress`, `SendAddress`, etc.). Controlado pelo toggle `IsSerialLoggingEnabled` na `MainViewModel`, persistido em `Properties/Settings.settings` (`SerialPortLoggingEnabled`).
 
 ### Camada MVVM
 

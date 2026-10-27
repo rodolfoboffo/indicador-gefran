@@ -203,10 +203,10 @@ namespace IndicadorGefran.Model
         private void ExecuteInitializationProtocol(SerialPort port, int baudRate)
         {
             if (port.IsOpen)
-                port.Close();
+                ClosePort(port);
             OpenPort(port, baudRate, Parity.Even);
             ResetSlave(port);
-            port.Close();
+            ClosePort(port);
             OpenPort(port, baudRate, Parity.Odd);
             SelectSlave(port, 1);
             byte[] response = ReadAddress(port, baudRate, GEFRAN_ADDRESS, 6);
@@ -222,6 +222,13 @@ namespace IndicadorGefran.Model
             port.StopBits = StopBits.One;
             port.Parity = parity;
             port.Open();
+            SerialPortLogger.Instance.LogPortOpened(port);
+        }
+
+        private void ClosePort(SerialPort port)
+        {
+            SerialPortLogger.Instance.LogPortClosed(port);
+            port.Close();
         }
 
         private void OpenPort(SerialPort port, int baudRate)
@@ -324,6 +331,7 @@ namespace IndicadorGefran.Model
                 {
                     response[i] = (byte)port.ReadByte();
                 }
+                SerialPortLogger.Instance.LogBytesReceived(port, response);
                 return response;
             }
             catch (TimeoutException)
@@ -335,6 +343,7 @@ namespace IndicadorGefran.Model
         private void WriteSerial(byte[] buffer, SerialPort port)
         {
             port.Write(buffer, 0, buffer.Length);
+            SerialPortLogger.Instance.LogBytesSent(port, buffer);
         }
 
         public void Stop()
@@ -342,7 +351,7 @@ namespace IndicadorGefran.Model
             SerialPort p = this.port;
             this.port = null;
             if (p != null && p.IsOpen)
-                p.Close();
+                ClosePort(p);
             SwitchReadingTimer(false);
             SwitchStorageTimer(false);
             this.OnConnectionStateChanged(new EventArgs());
