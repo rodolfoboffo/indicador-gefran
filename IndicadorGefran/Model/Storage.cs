@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.IO;
-using System.Windows;
 
 namespace IndicadorGefran.Model
 {
@@ -60,16 +59,9 @@ namespace IndicadorGefran.Model
                     builder.Append(item.DisplayTime + ";" + item.Value + "\n");
                 }
             }
-            try
-            {
-                StreamWriter file = new System.IO.StreamWriter(fileName);
-                file.Write(builder.ToString());
-                file.Close();
-            }
-            catch (Exception ex)
-            {
-                ((App)Application.Current).ShowError(ex.Message);
-            }
+            StreamWriter file = new System.IO.StreamWriter(fileName);
+            file.Write(builder.ToString());
+            file.Close();
         }
     }
 }

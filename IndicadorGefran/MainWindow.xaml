@@ -5,34 +5,43 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:IndicadorGefran"
         mc:Ignorable="d"
-        Title="Indicador Gefran" Height="397.5" Width="668.8">
+        Title="{Binding WindowTitle}" Height="397.5" Width="668.8">
     <DockPanel>
         <ToolBarTray DockPanel.Dock="Top">
             <ToolBar x:Name="toolbarConnection">
                 <Label x:Name="labelToolbarSerialPorts" Content="Porta"></Label>
-                <ComboBox x:Name="comboboxSerialPorts" Width="120"></ComboBox>
+                <ComboBox x:Name="comboboxSerialPorts" Width="120"
+                          ItemsSource="{Binding SerialPortNames}"
+                          SelectedItem="{Binding SelectedPortName}"
+                          IsEnabled="{Binding IsConnectionSettingsEditable}"></ComboBox>
                 <Label x:Name="labelToolbarBaudRate" Content="Taxa de transmissão"></Label>
-                <ComboBox x:Name="comboboxBaudrates" Width="120">
+                <ComboBox x:Name="comboboxBaudrates" Width="120"
+                          ItemsSource="{Binding BaudRates}"
+                          SelectedItem="{Binding SelectedBaudRate}"
+                          IsEnabled="{Binding IsConnectionSettingsEditable}">
                 </ComboBox>
-                <Button x:Name="buttonConnectDisconnect" Click="OnButtonConnectClick">
-                    <Label Content="Conectar"></Label>
+                <Button x:Name="buttonConnectDisconnect" Command="{Binding ConnectDisconnectCommand}">
+                    <Label Content="{Binding ConnectButtonLabel}"></Label>
                 </Button>
-                <Button x:Name="buttonRefreshSerialPorts">
+                <Button x:Name="buttonRefreshSerialPorts" Command="{Binding RefreshPortsCommand}"
+                        IsEnabled="{Binding IsConnectionSettingsEditable}">
                     <Label Content="Atualizar"></Label>
                 </Button>
             </ToolBar>
         </ToolBarTray>
         <DockPanel DockPanel.Dock="Right">
             <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button Content="Limpar" Margin="5" Click="OnButtonLimparClick"></Button>
-                <Button Content="Exportar" Margin="5" Click="OnButtonExportClick"></Button>
+                <Button Content="Limpar" Margin="5" Command="{Binding ClearCommand}"></Button>
+                <Button Content="Exportar" Margin="5" Command="{Binding ExportCommand}"></Button>
             </StackPanel>
             <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" HorizontalAlignment="Center" Margin="5">
                 <Label Content="Intervalo" DockPanel.Dock="Left"></Label>
-                <TextBox x:Name="textBoxStorageTimerInterval" Width="60" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"></TextBox>
+                <TextBox x:Name="textBoxStorageTimerInterval" Width="60" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
+                         Text="{Binding StorageIntervalText, UpdateSourceTrigger=PropertyChanged}"></TextBox>
                 <Label Content="segundos"></Label>
             </StackPanel>
-            <DataGrid x:Name="datagridStorage" AutoGenerateColumns="False" Width="200" IsReadOnly="True" Margin="5">
+            <DataGrid x:Name="datagridStorage" AutoGenerateColumns="False" Width="200" IsReadOnly="True" Margin="5"
+                      ItemsSource="{Binding Readings}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Tempo" Binding="{Binding DisplayTime, StringFormat=\{0:#0.000\}}" />
                     <DataGridTextColumn Header="Valor" Binding="{Binding Value}" />
@@ -40,8 +49,8 @@
             </DataGrid>
         </DockPanel>
         <StackPanel Width="400" VerticalAlignment="Center">
-            <Label x:Name="labelMainIndicator" Content="" FontWeight="Bold" FontSize="72" HorizontalAlignment="Center"></Label>
-            <Label x:Name="labelTime" Content="" FontWeight="Bold" FontSize="24" HorizontalAlignment="Center"></Label>
+            <Label x:Name="labelMainIndicator" Content="{Binding CurrentValue}" FontWeight="Bold" FontSize="72" HorizontalAlignment="Center"></Label>
+            <Label x:Name="labelTime" Content="{Binding CurrentTime}" FontWeight="Bold" FontSize="24" HorizontalAlignment="Center"></Label>
         </StackPanel>
     </DockPanel>
 </Window>
