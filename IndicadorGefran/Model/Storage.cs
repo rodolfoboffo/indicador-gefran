@@ -56,7 +56,7 @@ namespace IndicadorGefran.Model
             {
                 foreach (Reading item in this.readings)
                 {
-                    builder.Append(item.DisplayTime + ";" + item.Value + "\n");
+                    builder.Append(item.DisplayTime + ";" + item.Value + ";" + item.Status + "\n");
                 }
             }
             StreamWriter file = new System.IO.StreamWriter(fileName);

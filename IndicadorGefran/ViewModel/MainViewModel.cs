@@ -1,5 +1,4 @@
 using IndicadorGefran.Model;
-using IndicadorGefran.Model.Exceptions;
 using IndicadorGefran.Services;
 using System;
 using System.Collections.ObjectModel;
@@ -15,10 +14,12 @@ namespace IndicadorGefran.ViewModel
         private String selectedPortName;
         private int selectedBaudRate;
         private bool isConnectionSettingsEditable;
-        private String connectButtonLabel;
+        private String startStopButtonLabel;
+        private String connectionStatusText;
         private String currentValue;
         private String currentTime;
         private String storageIntervalText;
+        private String reconnectIntervalText;
         private bool isConnecting;
 
         public MainViewModel(IDialogService dialogService)
@@ -29,7 +30,7 @@ namespace IndicadorGefran.ViewModel
             this.BaudRates = new ObservableCollection<int>(new int[] { 1200, 2400, 4800, 9600, 19200, 38400 });
             this.Readings = new ObservableCollection<Reading>();
 
-            this.ConnectDisconnectCommand = new RelayCommand(_ => ExecuteConnectDisconnect(), _ => !this.isConnecting);
+            this.StartStopCommand = new RelayCommand(_ => ExecuteStartStop(), _ => !this.isConnecting);
             this.RefreshPortsCommand = new RelayCommand(_ => RefreshSerialPortNames());
             this.ClearCommand = new RelayCommand(_ => ExecuteClear());
             this.ExportCommand = new RelayCommand(_ => ExecuteExport());
@@ -48,6 +49,8 @@ namespace IndicadorGefran.ViewModel
             RefreshStorageIntervalText();
 
             SerialPortLogger.Instance.Enabled = Properties.Settings.Default.SerialPortLoggingEnabled;
+            Indicator.Instance.ReconnectIntervalMillis = Properties.Settings.Default.ReconnectIntervalMillis;
+            RefreshReconnectIntervalText();
         }
 
         public ObservableCollection<String> SerialPortNames { get; }
@@ -56,7 +59,7 @@ namespace IndicadorGefran.ViewModel
 
         public String WindowTitle { get; }
 
-        public RelayCommand ConnectDisconnectCommand { get; }
+        public RelayCommand StartStopCommand { get; }
         public RelayCommand RefreshPortsCommand { get; }
         public RelayCommand ClearCommand { get; }
         public RelayCommand ExportCommand { get; }
@@ -79,10 +82,16 @@ namespace IndicadorGefran.ViewModel
             private set { SetProperty(ref this.isConnectionSettingsEditable, value); }
         }
 
-        public String ConnectButtonLabel
+        public String StartStopButtonLabel
         {
-            get { return this.connectButtonLabel; }
-            private set { SetProperty(ref this.connectButtonLabel, value); }
+            get { return this.startStopButtonLabel; }
+            private set { SetProperty(ref this.startStopButtonLabel, value); }
+        }
+
+        public String ConnectionStatusText
+        {
+            get { return this.connectionStatusText; }
+            private set { SetProperty(ref this.connectionStatusText, value); }
         }
 
         public String CurrentValue
@@ -130,6 +139,29 @@ namespace IndicadorGefran.ViewModel
             OnPropertyChanged(nameof(StorageIntervalText));
         }
 
+        public String ReconnectIntervalText
+        {
+            get { return this.reconnectIntervalText; }
+            set
+            {
+                int newInterval = 0;
+                int.TryParse(value, out newInterval);
+                if (newInterval > 0)
+                {
+                    Indicator.Instance.ReconnectIntervalMillis = newInterval;
+                    Properties.Settings.Default.ReconnectIntervalMillis = newInterval;
+                    Properties.Settings.Default.Save();
+                }
+                RefreshReconnectIntervalText();
+            }
+        }
+
+        private void RefreshReconnectIntervalText()
+        {
+            this.reconnectIntervalText = Indicator.Instance.ReconnectIntervalMillis.ToString("#0");
+            OnPropertyChanged(nameof(ReconnectIntervalText));
+        }
+
         private void RefreshSerialPortNames()
         {
             this.SerialPortNames.Clear();
@@ -138,13 +170,25 @@ namespace IndicadorGefran.ViewModel
 
         private void RefreshConnectionDependentState()
         {
-            this.IsConnectionSettingsEditable = !Indicator.Instance.IsReady;
-            this.ConnectButtonLabel = Indicator.Instance.IsReady ? "Desconectar" : "Conectar";
+            this.IsConnectionSettingsEditable = !Indicator.Instance.IsRunning;
+            this.StartStopButtonLabel = Indicator.Instance.IsRunning ? "Parar" : "Iniciar";
+            switch (Indicator.Instance.ConnectionState)
+            {
+                case IndicatorConnectionState.Connected:
+                    this.ConnectionStatusText = "Conectado";
+                    break;
+                case IndicatorConnectionState.Connecting:
+                    this.ConnectionStatusText = "Conectando...";
+                    break;
+                default:
+                    this.ConnectionStatusText = "Desconectado";
+                    break;
+            }
         }
 
-        private void ExecuteConnectDisconnect()
+        private void ExecuteStartStop()
         {
-            if (!Indicator.Instance.IsReady)
+            if (!Indicator.Instance.IsRunning)
             {
                 if (this.SelectedPortName == null)
                 {
@@ -155,16 +199,7 @@ namespace IndicadorGefran.ViewModel
                 {
                     this.isConnecting = true;
                     System.Windows.Input.CommandManager.InvalidateRequerySuggested();
-                    Indicator.Instance.Initialize(this.SelectedPortName, this.SelectedBaudRate);
-                }
-                catch (SerialPortInvalidException)
-                {
-                    this.dialogService.ShowError("Esta porta serial já não é mais válida.");
-                    RefreshSerialPortNames();
-                }
-                catch (Exception ex)
-                {
-                    this.dialogService.ShowError(ex.Message);
+                    Indicator.Instance.Start(this.SelectedPortName, this.SelectedBaudRate);
                 }
                 finally
                 {

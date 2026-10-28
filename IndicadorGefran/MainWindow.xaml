@@ -20,9 +20,10 @@
                           SelectedItem="{Binding SelectedBaudRate}"
                           IsEnabled="{Binding IsConnectionSettingsEditable}">
                 </ComboBox>
-                <Button x:Name="buttonConnectDisconnect" Command="{Binding ConnectDisconnectCommand}">
-                    <Label Content="{Binding ConnectButtonLabel}"></Label>
+                <Button x:Name="buttonStartStop" Command="{Binding StartStopCommand}">
+                    <Label Content="{Binding StartStopButtonLabel}"></Label>
                 </Button>
+                <Label x:Name="labelConnectionStatus" Content="{Binding ConnectionStatusText}" VerticalAlignment="Center" Margin="5,0,0,0" FontWeight="Bold"></Label>
                 <Button x:Name="buttonRefreshSerialPorts" Command="{Binding RefreshPortsCommand}"
                         IsEnabled="{Binding IsConnectionSettingsEditable}">
                     <Label Content="Atualizar"></Label>
@@ -42,11 +43,18 @@
                          Text="{Binding StorageIntervalText, UpdateSourceTrigger=PropertyChanged}"></TextBox>
                 <Label Content="segundos"></Label>
             </StackPanel>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" HorizontalAlignment="Center" Margin="5">
+                <Label Content="Intervalo de reconexão" DockPanel.Dock="Left"></Label>
+                <TextBox x:Name="textBoxReconnectInterval" Width="60" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
+                         Text="{Binding ReconnectIntervalText, UpdateSourceTrigger=PropertyChanged}"></TextBox>
+                <Label Content="ms"></Label>
+            </StackPanel>
             <DataGrid x:Name="datagridStorage" AutoGenerateColumns="False" Width="200" IsReadOnly="True" Margin="5"
                       ItemsSource="{Binding Readings}">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Tempo" Binding="{Binding DisplayTime, StringFormat=\{0:#0.000\}}" />
                     <DataGridTextColumn Header="Valor" Binding="{Binding Value}" />
+                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" />
                 </DataGrid.Columns>
             </DataGrid>
         </DockPanel>

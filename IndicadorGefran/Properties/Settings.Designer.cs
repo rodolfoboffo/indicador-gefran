@@ -33,5 +33,16 @@ namespace IndicadorGefran.Properties {
                 this["SerialPortLoggingEnabled"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("2000")]
+        public int ReconnectIntervalMillis {
+            get {
+                return ((int)(this["ReconnectIntervalMillis"]));
+            }
+            set {
+                this["ReconnectIntervalMillis"] = value;
+            }
+        }
     }
 }
