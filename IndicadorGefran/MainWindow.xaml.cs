@@ -12,12 +12,19 @@ namespace IndicadorGefran
         public MainWindow()
         {
             InitializeComponent();
-            this.DataContext = new MainViewModel(new DialogService());
+            this.DataContext = new MainViewModel(DialogService.Instance, SerialPortMonitorService.Instance);
+            this.SourceInitialized += OnMainWindowSourceInitialized;
             this.Closing += OnMainWindowClosing;
+        }
+
+        private void OnMainWindowSourceInitialized(object sender, System.EventArgs e)
+        {
+            SerialPortMonitorService.Instance.Attach(this);
         }
 
         private void OnMainWindowClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            SerialPortMonitorService.Instance.Detach();
             ((MainViewModel)this.DataContext).OnWindowClosing();
         }
     }

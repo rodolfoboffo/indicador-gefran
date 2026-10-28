@@ -23,15 +23,24 @@
                 <Button x:Name="buttonStartStop" Command="{Binding StartStopCommand}">
                     <Label Content="{Binding StartStopButtonLabel}"></Label>
                 </Button>
-                <Label x:Name="labelConnectionStatus" Content="{Binding ConnectionStatusText}" VerticalAlignment="Center" Margin="5,0,0,0" FontWeight="Bold"></Label>
-                <Button x:Name="buttonRefreshSerialPorts" Command="{Binding RefreshPortsCommand}"
-                        IsEnabled="{Binding IsConnectionSettingsEditable}">
-                    <Label Content="Atualizar"></Label>
-                </Button>
                 <CheckBox x:Name="checkboxSerialLogging" Content="Log da porta serial" VerticalAlignment="Center" Margin="10,0,0,0"
                           IsChecked="{Binding IsSerialLoggingEnabled}"></CheckBox>
             </ToolBar>
         </ToolBarTray>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBar.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <DockPanel LastChildFill="True"></DockPanel>
+                </ItemsPanelTemplate>
+            </StatusBar.ItemsPanel>
+            <StatusBarItem HorizontalContentAlignment="Stretch">
+                <Border BorderBrush="#A0A0A0" BorderThickness="1,1,0,0">
+                    <Border BorderBrush="White" BorderThickness="0,0,1,1">
+                        <TextBlock x:Name="textBlockConnectionStatus" Text="{Binding ConnectionStatusText}" Padding="4,1"></TextBlock>
+                    </Border>
+                </Border>
+            </StatusBarItem>
+        </StatusBar>
         <DockPanel DockPanel.Dock="Right">
             <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Limpar" Margin="5" Command="{Binding ClearCommand}"></Button>
@@ -42,12 +51,6 @@
                 <TextBox x:Name="textBoxStorageTimerInterval" Width="60" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
                          Text="{Binding StorageIntervalText, UpdateSourceTrigger=PropertyChanged}"></TextBox>
                 <Label Content="segundos"></Label>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal" DockPanel.Dock="Top" HorizontalAlignment="Center" Margin="5">
-                <Label Content="Intervalo de reconexão" DockPanel.Dock="Left"></Label>
-                <TextBox x:Name="textBoxReconnectInterval" Width="60" HorizontalContentAlignment="Right" VerticalContentAlignment="Center"
-                         Text="{Binding ReconnectIntervalText, UpdateSourceTrigger=PropertyChanged}"></TextBox>
-                <Label Content="ms"></Label>
             </StackPanel>
             <DataGrid x:Name="datagridStorage" AutoGenerateColumns="False" Width="200" IsReadOnly="True" Margin="5"
                       ItemsSource="{Binding Readings}">

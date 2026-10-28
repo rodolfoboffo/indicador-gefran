@@ -48,7 +48,7 @@ namespace IndicadorGefran.Model
             this.connectionState = IndicatorConnectionState.Disconnected;
             this.readingTimer = new Timer(1);
             this.storageTimer = new Timer(3000);
-            this.reconnectTimer = new Timer(2000);
+            this.reconnectTimer = new Timer(5);
             this.readingTimer.Elapsed += OnReadingTimerElapsed;
             this.storageTimer.Elapsed += OnStorageTimerElapsed;
             this.reconnectTimer.Elapsed += OnReconnectTimerElapsed;
@@ -70,18 +70,6 @@ namespace IndicadorGefran.Model
             set
             {
                 this.storageTimer.Interval = Convert.ToDouble(value*1000);
-            }
-        }
-
-        public int ReconnectIntervalMillis
-        {
-            get
-            {
-                return Convert.ToInt32(this.reconnectTimer.Interval);
-            }
-            set
-            {
-                this.reconnectTimer.Interval = Convert.ToDouble(value);
             }
         }
 

@@ -6,6 +6,24 @@ namespace IndicadorGefran.Services
 {
     public class DialogService : IDialogService
     {
+        private static DialogService instance;
+
+        private DialogService()
+        {
+        }
+
+        public static DialogService Instance
+        {
+            get
+            {
+                if (instance == null)
+                {
+                    instance = new DialogService();
+                }
+                return instance;
+            }
+        }
+
         public void ShowAlert(String message)
         {
             Application.Current.Dispatcher.Invoke(new Action(() => {

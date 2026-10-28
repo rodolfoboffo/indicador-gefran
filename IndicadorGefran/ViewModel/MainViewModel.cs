@@ -10,6 +10,7 @@ namespace IndicadorGefran.ViewModel
     public class MainViewModel : ViewModelBase
     {
         private readonly IDialogService dialogService;
+        private readonly ISerialPortMonitorService serialPortMonitorService;
 
         private String selectedPortName;
         private int selectedBaudRate;
@@ -19,25 +20,25 @@ namespace IndicadorGefran.ViewModel
         private String currentValue;
         private String currentTime;
         private String storageIntervalText;
-        private String reconnectIntervalText;
         private bool isConnecting;
 
-        public MainViewModel(IDialogService dialogService)
+        public MainViewModel(IDialogService dialogService, ISerialPortMonitorService serialPortMonitorService)
         {
             this.dialogService = dialogService;
+            this.serialPortMonitorService = serialPortMonitorService;
 
             this.SerialPortNames = new ObservableCollection<String>();
             this.BaudRates = new ObservableCollection<int>(new int[] { 1200, 2400, 4800, 9600, 19200, 38400 });
             this.Readings = new ObservableCollection<Reading>();
 
             this.StartStopCommand = new RelayCommand(_ => ExecuteStartStop(), _ => !this.isConnecting);
-            this.RefreshPortsCommand = new RelayCommand(_ => RefreshSerialPortNames());
             this.ClearCommand = new RelayCommand(_ => ExecuteClear());
             this.ExportCommand = new RelayCommand(_ => ExecuteExport());
 
             Indicator.Instance.ConnectionStateChanged += OnIndicatorConnectionStateChanged;
             Indicator.Instance.IndicatorValueChanged += OnIndicatorValueChanged;
             Indicator.Instance.Storage.StorageChanged += OnStorageChanged;
+            this.serialPortMonitorService.PortsChanged += OnPortsChanged;
 
             Version version = Assembly.GetExecutingAssembly().GetName().Version;
             this.WindowTitle = String.Format("Software para coleta de tempo e deslocamento Indicador Gefran 2351 - rev. {2}",
@@ -47,10 +48,6 @@ namespace IndicadorGefran.ViewModel
             this.selectedBaudRate = this.BaudRates[1];
             RefreshConnectionDependentState();
             RefreshStorageIntervalText();
-
-            SerialPortLogger.Instance.Enabled = Properties.Settings.Default.SerialPortLoggingEnabled;
-            Indicator.Instance.ReconnectIntervalMillis = Properties.Settings.Default.ReconnectIntervalMillis;
-            RefreshReconnectIntervalText();
         }
 
         public ObservableCollection<String> SerialPortNames { get; }
@@ -60,7 +57,6 @@ namespace IndicadorGefran.ViewModel
         public String WindowTitle { get; }
 
         public RelayCommand StartStopCommand { get; }
-        public RelayCommand RefreshPortsCommand { get; }
         public RelayCommand ClearCommand { get; }
         public RelayCommand ExportCommand { get; }
 
@@ -112,8 +108,6 @@ namespace IndicadorGefran.ViewModel
             set
             {
                 SerialPortLogger.Instance.Enabled = value;
-                Properties.Settings.Default.SerialPortLoggingEnabled = value;
-                Properties.Settings.Default.Save();
                 OnPropertyChanged();
             }
         }
@@ -139,33 +133,16 @@ namespace IndicadorGefran.ViewModel
             OnPropertyChanged(nameof(StorageIntervalText));
         }
 
-        public String ReconnectIntervalText
-        {
-            get { return this.reconnectIntervalText; }
-            set
-            {
-                int newInterval = 0;
-                int.TryParse(value, out newInterval);
-                if (newInterval > 0)
-                {
-                    Indicator.Instance.ReconnectIntervalMillis = newInterval;
-                    Properties.Settings.Default.ReconnectIntervalMillis = newInterval;
-                    Properties.Settings.Default.Save();
-                }
-                RefreshReconnectIntervalText();
-            }
-        }
-
-        private void RefreshReconnectIntervalText()
-        {
-            this.reconnectIntervalText = Indicator.Instance.ReconnectIntervalMillis.ToString("#0");
-            OnPropertyChanged(nameof(ReconnectIntervalText));
-        }
-
         private void RefreshSerialPortNames()
         {
             this.SerialPortNames.Clear();
             SerialPortUtil.Instance.AvailableSerialPortNames.ForEach(name => this.SerialPortNames.Add(name));
+        }
+
+        private void OnPortsChanged(object sender, EventArgs e)
+        {
+            if (this.IsConnectionSettingsEditable)
+                RefreshSerialPortNames();
         }
 
         private void RefreshConnectionDependentState()
