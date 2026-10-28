@@ -24,7 +24,7 @@
                     <Label Content="{Binding StartStopButtonLabel}"></Label>
                 </Button>
                 <CheckBox x:Name="checkboxSerialLogging" Content="Log da porta serial" VerticalAlignment="Center" Margin="10,0,0,0"
-                          IsChecked="{Binding IsSerialLoggingEnabled}"></CheckBox>
+                          IsChecked="{Binding IsSerialLoggingEnabled}" Visibility="{Binding DebugControlsVisibility}"></CheckBox>
             </ToolBar>
         </ToolBarTray>
         <StatusBar DockPanel.Dock="Bottom">

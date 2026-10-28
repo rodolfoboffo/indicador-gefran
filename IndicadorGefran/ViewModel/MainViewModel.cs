@@ -2,6 +2,7 @@ using IndicadorGefran.Model;
 using IndicadorGefran.Services;
 using System;
 using System.Collections.ObjectModel;
+using System.Configuration;
 using System.Reflection;
 using System.Windows;
 
@@ -48,11 +49,17 @@ namespace IndicadorGefran.ViewModel
             this.selectedBaudRate = this.BaudRates[1];
             RefreshConnectionDependentState();
             RefreshStorageIntervalText();
+
+            bool debugModeEnabled;
+            bool.TryParse(ConfigurationManager.AppSettings["DebugModeEnabled"], out debugModeEnabled);
+            this.DebugControlsVisibility = debugModeEnabled ? Visibility.Visible : Visibility.Collapsed;
         }
 
         public ObservableCollection<String> SerialPortNames { get; }
         public ObservableCollection<int> BaudRates { get; }
         public ObservableCollection<Reading> Readings { get; }
+
+        public Visibility DebugControlsVisibility { get; }
 
         public String WindowTitle { get; }
 
