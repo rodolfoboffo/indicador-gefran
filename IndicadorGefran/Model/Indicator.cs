@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Configuration;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO.Ports;
 using IndicadorGefran;
 using IndicadorGefran.Model.Exceptions;
@@ -25,6 +28,9 @@ namespace IndicadorGefran.Model
         private static byte[] DISPLAY_ADDRESS = new byte[] { 0x03, 0x6F };
         private static byte[] ABSOLUTE_COUNT_ADDRESS = new byte[] { 0x03, 0x1A };
 
+        // Delay entre bytes enviados, em tempos de byte (App.config, chave InterByteDelayBytes); usado se ausente/invalido.
+        private const double DEFAULT_INTER_BYTE_DELAY_BYTES = 8.75;
+
         private static Indicator instance;
         private DateTime initialTime;
         private Timer readingTimer;
@@ -37,12 +43,14 @@ namespace IndicadorGefran.Model
         private String currentPortName;
         private bool isRunning;
         private IndicatorConnectionState connectionState;
+        private double interByteDelayBytes;
         public event EventHandler ConnectionStateChanged;
         public event EventHandler IndicatorValueChanged;
 
         private Indicator()
         {
             this.baudRate = 9600;
+            this.interByteDelayBytes = ReadInterByteDelayBytes();
             this.storage = new Storage();
             this.reading = null;
             this.connectionState = IndicatorConnectionState.Disconnected;
@@ -422,10 +430,44 @@ namespace IndicadorGefran.Model
             }
         }
 
+        // Envia byte a byte, esperando a transmissao terminar e um intervalo apos cada um (inclusive o ultimo),
+        // para que o eco do indicador chegue sem sobrepor a nossa TX (ruido full-duplex).
         private void WriteSerial(byte[] buffer, ISerialPortTransport port)
         {
-            port.Write(buffer, 0, buffer.Length);
+            // Ainda nao enviamos nada: tudo que estiver no buffer de recepcao e ruido.
+            port.DiscardInBuffer();
+            long delayTicks = GetInterByteDelayTicks(port);
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                port.Write(buffer, i, 1);
+                SpinWait(delayTicks);
+            }
             SerialPortLogger.Instance.LogBytesSent(port, buffer);
+        }
+
+        private static double ReadInterByteDelayBytes()
+        {
+            double value;
+            if (double.TryParse(ConfigurationManager.AppSettings["InterByteDelayBytes"],
+                    NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value >= 0)
+                return value;
+            return DEFAULT_INTER_BYTE_DELAY_BYTES;
+        }
+
+        // Tempo de 1 byte na linha = bits por byte (start + dados + paridade + stop) / baud.
+        private long GetInterByteDelayTicks(ISerialPortTransport port)
+        {
+            double stopBits = port.StopBits == StopBits.Two ? 2 : port.StopBits == StopBits.OnePointFive ? 1.5 : 1;
+            double bitsPerByte = 1 + port.DataBits + (port.Parity != Parity.None ? 1 : 0) + stopBits;
+            double delaySeconds = this.interByteDelayBytes * bitsPerByte / port.BaudRate;
+            return (long)(delaySeconds * Stopwatch.Frequency);
+        }
+
+        // Thread.Sleep tem granularidade de ~15ms no Windows, inviavel para delays de sub-milissegundo.
+        private static void SpinWait(long ticks)
+        {
+            long end = Stopwatch.GetTimestamp() + ticks;
+            while (Stopwatch.GetTimestamp() < end) { }
         }
 
         public void Stop()

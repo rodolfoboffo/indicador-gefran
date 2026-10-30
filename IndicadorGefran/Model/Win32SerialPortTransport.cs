@@ -22,6 +22,7 @@ namespace IndicadorGefran.Model
         private const uint DCB_FBINARY = 0x1;
         private const uint DCB_FPARITY = 0x2;
         private const uint DCB_FERRORCHAR = 0x400;
+        private const uint PURGE_RXCLEAR = 0x0008;
 
         [StructLayout(LayoutKind.Sequential)]
         private struct DCB
@@ -84,6 +85,12 @@ namespace IndicadorGefran.Model
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool ClearCommError(SafeFileHandle hFile, out uint lpErrors, out COMSTAT lpStat);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool FlushFileBuffers(SafeFileHandle hFile);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool PurgeComm(SafeFileHandle hFile, uint dwFlags);
 
         private SafeFileHandle handle;
         private int baudRate = 9600;
@@ -162,6 +169,16 @@ namespace IndicadorGefran.Model
             uint written;
             if (!WriteFile(this.handle, toWrite, (uint)count, out written, IntPtr.Zero) || written != count)
                 throw new IOException("Falha ao escrever na porta " + this.PortName + " (Win32 erro " + Marshal.GetLastWin32Error() + ").");
+
+            // Espera a transmissao terminar de fato no hardware (nao so ser aceita pelo driver).
+            if (!FlushFileBuffers(this.handle))
+                throw new IOException("Falha ao aguardar o fim da transmissão na porta " + this.PortName + " (Win32 erro " + Marshal.GetLastWin32Error() + ").");
+        }
+
+        public void DiscardInBuffer()
+        {
+            if (!PurgeComm(this.handle, PURGE_RXCLEAR))
+                throw new IOException("Falha ao descartar o buffer de recepção da porta " + this.PortName + " (Win32 erro " + Marshal.GetLastWin32Error() + ").");
         }
 
         public byte ReadByte(out bool parityError)

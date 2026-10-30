@@ -61,6 +61,11 @@ namespace IndicadorGefran.Model
             this.port.Write(buffer, offset, count);
         }
 
+        public void DiscardInBuffer()
+        {
+            this.port.DiscardInBuffer();
+        }
+
         public byte ReadByte(out bool parityError)
         {
             // SerialPort nao expoe erro de paridade por byte: o driver ja substitui

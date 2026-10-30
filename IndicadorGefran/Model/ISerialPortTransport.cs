@@ -16,6 +16,7 @@ namespace IndicadorGefran.Model
         void Open();
         void Close();
         void Write(byte[] buffer, int offset, int count);
+        void DiscardInBuffer();
         byte ReadByte(out bool parityError);
     }
 }
