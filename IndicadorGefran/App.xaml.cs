@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
-using System.Data;
-using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
+using IndicadorGefran.Model;
 
 namespace IndicadorGefran
 {
@@ -13,27 +10,25 @@ namespace IndicadorGefran
     /// </summary>
     public partial class App : Application
     {
-
-        public void ShowAlert(String message)
+        protected override void OnStartup(StartupEventArgs e)
         {
-            Application.Current.Dispatcher.Invoke(new Action(() => {
-                System.Windows.MessageBox.Show(message, "Alerta", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }));
+            bool debugModeEnabled;
+            bool.TryParse(ConfigurationManager.AppSettings["DebugModeEnabled"], out debugModeEnabled);
+            AppLogger.Instance.Enabled = debugModeEnabled;
+            AppLogger.Instance.Info("Aplicacao iniciada (versao " + System.Reflection.Assembly.GetExecutingAssembly().GetName().Version + ")");
+
+            // Apenas registram; nao marcam a excecao como tratada, o comportamento padrao continua igual.
+            this.DispatcherUnhandledException += (s, args) => AppLogger.Instance.Error("Excecao nao tratada na UI thread", args.Exception);
+            AppDomain.CurrentDomain.UnhandledException += (s, args) => AppLogger.Instance.Error("Excecao nao tratada (AppDomain)", args.ExceptionObject as Exception);
+
+            base.OnStartup(e);
         }
 
-        public void ShowError(String message)
+        protected override void OnExit(ExitEventArgs e)
         {
-            Application.Current.Dispatcher.Invoke(new Action(() => {
-                System.Windows.MessageBox.Show(message, "Erro", MessageBoxButton.OK, MessageBoxImage.Error);
-            }));
+            AppLogger.Instance.Info("Aplicacao encerrada");
+            AppLogger.Instance.Enabled = false;
+            base.OnExit(e);
         }
-
-        public void ShowInfo(String message)
-        {
-            Application.Current.Dispatcher.Invoke(new Action(() => {
-                System.Windows.MessageBox.Show(message, "Informação", MessageBoxButton.OK, MessageBoxImage.Information);
-            }));
-        }
-
     }
 }

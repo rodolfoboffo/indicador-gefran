@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Configuration;
+using System.Diagnostics;
+using System.Globalization;
 using System.IO.Ports;
 using IndicadorGefran;
 using IndicadorGefran.Model.Exceptions;
@@ -10,34 +13,54 @@ using System.Collections.Generic;
 
 namespace IndicadorGefran.Model
 {
+    public enum IndicatorConnectionState
+    {
+        Disconnected,
+        Connecting,
+        Connected
+    }
+
     public class Indicator
     {
-        private static byte[] RESET_VECTOR = new byte[] { 0x55 };
+        private static byte[] RESET_VECTOR = new byte[] { 0x55, 0x55, 0x55, 0x55, 0x55 };
         private static byte[] READ_COMMAND_VECTOR = new byte[] { 0x00 };
         private static byte[] GEFRAN_ADDRESS = new byte[] { 0x02, 0x82 };
         private static byte[] DISPLAY_ADDRESS = new byte[] { 0x03, 0x6F };
         private static byte[] ABSOLUTE_COUNT_ADDRESS = new byte[] { 0x03, 0x1A };
 
+        // Delay entre bytes enviados, em tempos de byte (App.config, chave InterByteDelayBytes); usado se ausente/invalido.
+        private const double DEFAULT_INTER_BYTE_DELAY_BYTES = 8.75;
+
         private static Indicator instance;
         private DateTime initialTime;
         private Timer readingTimer;
         private Timer storageTimer;
+        private Timer reconnectTimer;
         private Storage storage;
         private Reading reading;
-        private SerialPort port;
+        private ISerialPortTransport port;
         private int baudRate;
+        private String currentPortName;
+        private bool isRunning;
+        private IndicatorConnectionState connectionState;
+        private double interByteDelayBytes;
+        private String lastConnectFailure;
         public event EventHandler ConnectionStateChanged;
         public event EventHandler IndicatorValueChanged;
 
         private Indicator()
         {
             this.baudRate = 9600;
+            this.interByteDelayBytes = ReadInterByteDelayBytes();
             this.storage = new Storage();
             this.reading = null;
+            this.connectionState = IndicatorConnectionState.Disconnected;
             this.readingTimer = new Timer(1);
             this.storageTimer = new Timer(3000);
+            this.reconnectTimer = new Timer(5);
             this.readingTimer.Elapsed += OnReadingTimerElapsed;
             this.storageTimer.Elapsed += OnStorageTimerElapsed;
+            this.reconnectTimer.Elapsed += OnReconnectTimerElapsed;
             this.ConnectionStateChanged += OnIndicatorConnectionStateChanged;
             this.RestartClock();
         }
@@ -59,31 +82,47 @@ namespace IndicadorGefran.Model
             }
         }
 
+        public bool IsRunning { get { return this.isRunning; } }
+
+        public IndicatorConnectionState ConnectionState { get { return this.connectionState; } }
+
         private void OnStorageTimerElapsed(object sender, ElapsedEventArgs e)
         {
-            this.storage.AddReading(this.reading);
+            if (this.reading == null)
+                return;
+            bool connected = this.connectionState == IndicatorConnectionState.Connected;
+            this.storage.AddReading(connected ? this.reading : this.reading.AsStale());
         }
 
         private void AddReadingIntoStorage()
         {
             this.SwitchStorageTimer(false);
             this.storage.AddReading(this.reading);
-            this.SwitchStorageTimer(this.IsReady);
+            this.SwitchStorageTimer(this.isRunning);
         }
 
         private void OnReadingTimerElapsed(object sender, ElapsedEventArgs e)
         {
             SwitchReadingTimer(false);
-            this.ReaAbsoluteCountValue();
-            if (this.Storage.Readings.Count == 0)
-                this.AddReadingIntoStorage();
-            SwitchReadingTimer(this.IsReady);
+            try
+            {
+                if (this.connectionState == IndicatorConnectionState.Connected)
+                {
+                    this.ReaAbsoluteCountValue();
+                    if (this.Storage.Readings.Count == 0)
+                        this.AddReadingIntoStorage();
+                }
+            }
+            finally
+            {
+                SwitchReadingTimer(this.isRunning);
+            }
         }
 
         private void OnIndicatorConnectionStateChanged(object sender, EventArgs e)
         {
-            SwitchReadingTimer(this.IsReady);
-            SwitchStorageTimer(this.IsReady);
+            bool connected = this.connectionState == IndicatorConnectionState.Connected;
+            SwitchReconnectTimer(this.isRunning && !connected);
         }
 
         private void SwitchReadingTimer(Boolean on)
@@ -100,6 +139,23 @@ namespace IndicadorGefran.Model
             {
                 this.storageTimer.Enabled = on;
             }
+        }
+
+        private void SwitchReconnectTimer(Boolean on)
+        {
+            lock (this.reconnectTimer)
+            {
+                this.reconnectTimer.Enabled = on;
+            }
+        }
+
+        private void SetConnectionState(IndicatorConnectionState newState)
+        {
+            if (this.connectionState == newState)
+                return;
+            AppLogger.Instance.Info("Estado da conexao: " + this.connectionState + " -> " + newState);
+            this.connectionState = newState;
+            this.OnConnectionStateChanged(new EventArgs());
         }
 
         public static Indicator Instance
@@ -124,43 +180,73 @@ namespace IndicadorGefran.Model
             }
         }
 
-        public Boolean IsReady
+        public void Start(String portName, int baudRate)
         {
-            get
-            {
-                return this.port != null && this.port.IsOpen;
-            }
-        }
-
-        public String PortName {
-            get
-            {
-                if (this.port != null)
-                    return this.port.PortName;
-                return String.Empty;
-            }
-            set {
-                this.port = SerialPortUtil.Instance.GetSerialPort(value);
-            }
-        }
-
-        public void Initialize(String portName, int baudRate)
-        {
-            if (!SerialPortUtil.Instance.IsPortAvailable(portName))
-                throw new SerialPortInvalidException();
-            this.port = SerialPortUtil.Instance.GetSerialPort(portName);
+            AppLogger.Instance.Info("Start: porta=" + portName + ", baud=" + baudRate);
+            this.isRunning = true;
+            this.currentPortName = portName;
             this.baudRate = baudRate;
+            this.RestartClock();
+            SwitchReadingTimer(true);
+            SwitchStorageTimer(true);
+            this.SetConnectionState(IndicatorConnectionState.Connecting);
+            this.AttemptConnect();
+        }
+
+        private void AttemptConnect()
+        {
+            ISerialPortTransport newPort = null;
             try
             {
-                ExecuteInitializationProtocol(this.port, this.baudRate);
-                this.RestartClock();
-                this.OnConnectionStateChanged(new EventArgs());
+                if (!SerialPortUtil.Instance.IsPortAvailable(this.currentPortName))
+                    throw new SerialPortInvalidException();
+                newPort = SerialPortUtil.Instance.GetSerialPort(this.currentPortName);
+                ExecuteInitializationProtocol(newPort, this.baudRate);
             }
             catch (Exception ex)
             {
-                Stop();
-                throw ex;
+                // Roda a cada tick do reconnectTimer (5ms): so loga quando o motivo muda, senao viraria spam.
+                String failure = ex.GetType().Name + ": " + ex.Message;
+                if (failure != this.lastConnectFailure)
+                {
+                    this.lastConnectFailure = failure;
+                    AppLogger.Instance.Warn("Falha ao conectar (tentando novamente): " + failure);
+                }
+                TryClosePort(newPort);
+                return;
             }
+
+            if (!this.isRunning)
+            {
+                TryClosePort(newPort);
+                return;
+            }
+            this.lastConnectFailure = null;
+            this.port = newPort;
+            this.SetConnectionState(IndicatorConnectionState.Connected);
+        }
+
+        private void OnReconnectTimerElapsed(object sender, ElapsedEventArgs e)
+        {
+            SwitchReconnectTimer(false);
+            try
+            {
+                this.AttemptConnect();
+            }
+            finally
+            {
+                bool connected = this.connectionState == IndicatorConnectionState.Connected;
+                SwitchReconnectTimer(this.isRunning && !connected);
+            }
+        }
+
+        private void HandleConnectionLost()
+        {
+            ISerialPortTransport p = this.port;
+            this.port = null;
+            TryClosePort(p);
+            if (this.isRunning)
+                this.SetConnectionState(IndicatorConnectionState.Connecting);
         }
 
         public String ReadDisplayValue()
@@ -176,7 +262,8 @@ namespace IndicadorGefran.Model
             }
             catch (Exception ex)
             {
-                Stop();
+                AppLogger.Instance.Warn("Conexao perdida lendo display: " + ex.GetType().Name + ": " + ex.Message);
+                HandleConnectionLost();
                 throw ex;
             }
         }
@@ -195,26 +282,29 @@ namespace IndicadorGefran.Model
             }
             catch (Exception ex)
             {
-                Stop();
+                AppLogger.Instance.Warn("Conexao perdida lendo contagem absoluta: " + ex.GetType().Name + ": " + ex.Message);
+                HandleConnectionLost();
                 throw ex;
             }
         }
 
-        private void ExecuteInitializationProtocol(SerialPort port, int baudRate)
+        private void ExecuteInitializationProtocol(ISerialPortTransport port, int baudRate)
         {
             if (port.IsOpen)
-                port.Close();
+                ClosePort(port);
             OpenPort(port, baudRate, Parity.Even);
             ResetSlave(port);
-            port.Close();
+            ClosePort(port);
             OpenPort(port, baudRate, Parity.Odd);
             SelectSlave(port, 1);
             byte[] response = ReadAddress(port, baudRate, GEFRAN_ADDRESS, 6);
             String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
-            if (!responseString.Equals("GEFRAN")) throw new InvalidResponseFromIndicatorException();
+            if (!responseString.Equals("GEFRAN"))
+                throw new InvalidResponseFromIndicatorException(String.Format(
+                    "Esperado: \"GEFRAN\"; lido: [{0}] (\"{1}\")", FormatHex(response), responseString));
         }
 
-        private void OpenPort(SerialPort port, int baudRate, Parity parity)
+        private void OpenPort(ISerialPortTransport port, int baudRate, Parity parity)
         {
             port.ReadTimeout = 1000;
             port.BaudRate = baudRate;
@@ -222,19 +312,38 @@ namespace IndicadorGefran.Model
             port.StopBits = StopBits.One;
             port.Parity = parity;
             port.Open();
+            SerialPortLogger.Instance.LogPortOpened(port);
         }
 
-        private void OpenPort(SerialPort port, int baudRate)
+        private void ClosePort(ISerialPortTransport port)
+        {
+            SerialPortLogger.Instance.LogPortClosed(port);
+            port.Close();
+        }
+
+        private void TryClosePort(ISerialPortTransport port)
+        {
+            try
+            {
+                if (port != null && port.IsOpen)
+                    ClosePort(port);
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        private void OpenPort(ISerialPortTransport port, int baudRate)
         {
             OpenPort(port, baudRate, Parity.Even);
         }
 
-        private void ResetSlave(SerialPort port)
+        private void ResetSlave(ISerialPortTransport port)
         {
             WriteSerial(RESET_VECTOR, port);
         }
 
-        private void SelectSlave(SerialPort port, int slaveCode)
+        private void SelectSlave(ISerialPortTransport port, int slaveCode)
         {
             byte[] slaveCodeBytes = GetByteArray(slaveCode, 2);
             WriteAndCheckResponse(port, slaveCodeBytes, true);
@@ -248,7 +357,7 @@ namespace IndicadorGefran.Model
             return output;
         }
 
-        private void WriteAndCheckResponse(SerialPort port, byte[] buffer, Boolean inverse)
+        private void WriteAndCheckResponse(ISerialPortTransport port, byte[] buffer, Boolean inverse)
         {
             //StringBuilder builder = new StringBuilder();
             //builder.Append("Output: ");
@@ -269,15 +378,17 @@ namespace IndicadorGefran.Model
             //    builder.Append(response[i].ToString(" "));
             //}
             //((App)Application.Current).ShowInfo(builder.ToString());
-            if (!response.SequenceEqual(expectedResponse)) throw new InvalidResponseFromIndicatorException();
+            if (!response.SequenceEqual(expectedResponse))
+                throw new InvalidResponseFromIndicatorException(String.Format(
+                    "Esperado: [{0}]; lido: [{1}]", FormatHex(expectedResponse), FormatHex(response)));
         }
 
-        private void SendCommandRead(SerialPort port)
+        private void SendCommandRead(ISerialPortTransport port)
         {
             WriteAndCheckResponse(port, READ_COMMAND_VECTOR, true);
         }
 
-        private byte[] ReadAddress(SerialPort port, int baudRate, byte[] address, int numBytes)
+        private byte[] ReadAddress(ISerialPortTransport port, int baudRate, byte[] address, int numBytes)
         {
             SendCommandRead(port);
             SendNumberBytes(port, numBytes);
@@ -294,13 +405,13 @@ namespace IndicadorGefran.Model
             return response;
         }
 
-        private void SendNumberBytes(SerialPort port, int numBytes)
+        private void SendNumberBytes(ISerialPortTransport port, int numBytes)
         {
             byte[] b = GetByteArray(numBytes, 2);
             WriteAndCheckResponse(port, b, false);
         }
 
-        private void SendAddress(SerialPort port, byte[] address)
+        private void SendAddress(ISerialPortTransport port, byte[] address)
         {
             WriteAndCheckResponse(port, address, false);
         }
@@ -315,37 +426,90 @@ namespace IndicadorGefran.Model
             return output;
         }
 
-        private byte[] GetResponse(int numBytes, SerialPort port)
+        private byte[] GetResponse(int numBytes, ISerialPortTransport port)
         {
             byte[] response = new byte[numBytes];
+            bool[] parityErrors = new bool[numBytes];
+            int received = 0;
+            Stopwatch waited = new Stopwatch();
             try
             {
                 for (int i = 0; i < numBytes; i++)
                 {
-                    response[i] = (byte)port.ReadByte();
+                    bool parityError;
+                    waited.Restart();
+                    response[i] = port.ReadByte(out parityError);
+                    parityErrors[i] = parityError;
+                    received++;
                 }
+                SerialPortLogger.Instance.LogBytesReceived(port, response, parityErrors);
                 return response;
             }
             catch (TimeoutException)
             {
-                throw new NoResponseFromIndicatorException();
+                throw new NoResponseFromIndicatorException(String.Format(
+                    "Aguardou {0} ms (timeout de {1} ms) pelo byte {2} de {3}; recebido ate agora: [{4}]",
+                    waited.ElapsedMilliseconds, port.ReadTimeout, received + 1, numBytes,
+                    FormatHex(response.Take(received).ToArray())));
             }
         }
 
-        private void WriteSerial(byte[] buffer, SerialPort port)
+        private static String FormatHex(byte[] bytes)
         {
-            port.Write(buffer, 0, buffer.Length);
+            return String.Join(" ", bytes.Select(b => b.ToString("X2")));
+        }
+
+        // Envia byte a byte, esperando a transmissao terminar e um intervalo apos cada um (inclusive o ultimo),
+        // para que o eco do indicador chegue sem sobrepor a nossa TX (ruido full-duplex).
+        private void WriteSerial(byte[] buffer, ISerialPortTransport port)
+        {
+            // Ainda nao enviamos nada: tudo que estiver no buffer de recepcao e ruido.
+            port.DiscardInBuffer();
+            long delayTicks = GetInterByteDelayTicks(port);
+            for (int i = 0; i < buffer.Length; i++)
+            {
+                port.Write(buffer, i, 1);
+                SpinWait(delayTicks);
+            }
+            SerialPortLogger.Instance.LogBytesSent(port, buffer);
+        }
+
+        private static double ReadInterByteDelayBytes()
+        {
+            double value;
+            if (double.TryParse(ConfigurationManager.AppSettings["InterByteDelayBytes"],
+                    NumberStyles.Float, CultureInfo.InvariantCulture, out value) && value >= 0)
+                return value;
+            return DEFAULT_INTER_BYTE_DELAY_BYTES;
+        }
+
+        // Tempo de 1 byte na linha = bits por byte (start + dados + paridade + stop) / baud.
+        private long GetInterByteDelayTicks(ISerialPortTransport port)
+        {
+            double stopBits = port.StopBits == StopBits.Two ? 2 : port.StopBits == StopBits.OnePointFive ? 1.5 : 1;
+            double bitsPerByte = 1 + port.DataBits + (port.Parity != Parity.None ? 1 : 0) + stopBits;
+            double delaySeconds = this.interByteDelayBytes * bitsPerByte / port.BaudRate;
+            return (long)(delaySeconds * Stopwatch.Frequency);
+        }
+
+        // Thread.Sleep tem granularidade de ~15ms no Windows, inviavel para delays de sub-milissegundo.
+        private static void SpinWait(long ticks)
+        {
+            long end = Stopwatch.GetTimestamp() + ticks;
+            while (Stopwatch.GetTimestamp() < end) { }
         }
 
         public void Stop()
         {
-            SerialPort p = this.port;
+            AppLogger.Instance.Info("Stop");
+            this.isRunning = false;
+            ISerialPortTransport p = this.port;
             this.port = null;
-            if (p != null && p.IsOpen)
-                p.Close();
+            TryClosePort(p);
             SwitchReadingTimer(false);
             SwitchStorageTimer(false);
-            this.OnConnectionStateChanged(new EventArgs());
+            SwitchReconnectTimer(false);
+            this.SetConnectionState(IndicatorConnectionState.Disconnected);
         }
 
         public void Terminate()
