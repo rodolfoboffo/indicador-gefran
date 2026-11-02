@@ -19,22 +19,48 @@ namespace IndicadorGefran.Model.Exceptions
 
     public class NoResponseFromIndicatorException : Exception
     {
+        private readonly String details;
+
+        public NoResponseFromIndicatorException()
+        {
+        }
+
+        // details: contexto para diagnostico (tempo aguardado, bytes ja recebidos), anexado a Message.
+        public NoResponseFromIndicatorException(String details)
+        {
+            this.details = details;
+        }
+
         public override String Message
         {
             get
             {
-                return "Não houve resposta do indicador.";
+                String message = "Não houve resposta do indicador.";
+                return this.details == null ? message : message + " " + this.details;
             }
         }
     }
 
     public class InvalidResponseFromIndicatorException : Exception
     {
+        private readonly String details;
+
+        public InvalidResponseFromIndicatorException()
+        {
+        }
+
+        // details: contexto para diagnostico (esperado x recebido), anexado a Message.
+        public InvalidResponseFromIndicatorException(String details)
+        {
+            this.details = details;
+        }
+
         public override String Message
         {
             get
             {
-                return "Indicador respondeu de forma inválida.";
+                String message = "Indicador respondeu de forma inválida.";
+                return this.details == null ? message : message + " " + this.details;
             }
         }
     }
