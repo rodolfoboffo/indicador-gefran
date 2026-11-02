@@ -148,6 +148,7 @@ namespace IndicadorGefran.ViewModel
 
         private void OnPortsChanged(object sender, EventArgs e)
         {
+            AppLogger.Instance.Info("Dispositivos alterados (WM_DEVICECHANGE); atualizar portas: " + this.IsConnectionSettingsEditable);
             if (this.IsConnectionSettingsEditable)
                 RefreshSerialPortNames();
         }
@@ -199,6 +200,7 @@ namespace IndicadorGefran.ViewModel
 
         private void ExecuteClear()
         {
+            AppLogger.Instance.Info("Historico limpo pelo usuario");
             Indicator.Instance.Storage.Clear();
             Indicator.Instance.RestartClock();
         }
@@ -211,9 +213,11 @@ namespace IndicadorGefran.ViewModel
                 try
                 {
                     Indicator.Instance.Storage.ExportToCSV(filePath);
+                    AppLogger.Instance.Info("CSV exportado: " + filePath + " (" + Indicator.Instance.Storage.Readings.Count + " leituras)");
                 }
                 catch (Exception ex)
                 {
+                    AppLogger.Instance.Error("Falha ao exportar CSV para " + filePath, ex);
                     this.dialogService.ShowError(ex.Message);
                 }
             }

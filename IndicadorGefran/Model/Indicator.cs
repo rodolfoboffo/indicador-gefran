@@ -44,6 +44,7 @@ namespace IndicadorGefran.Model
         private bool isRunning;
         private IndicatorConnectionState connectionState;
         private double interByteDelayBytes;
+        private String lastConnectFailure;
         public event EventHandler ConnectionStateChanged;
         public event EventHandler IndicatorValueChanged;
 
@@ -152,6 +153,7 @@ namespace IndicadorGefran.Model
         {
             if (this.connectionState == newState)
                 return;
+            AppLogger.Instance.Info("Estado da conexao: " + this.connectionState + " -> " + newState);
             this.connectionState = newState;
             this.OnConnectionStateChanged(new EventArgs());
         }
@@ -180,6 +182,7 @@ namespace IndicadorGefran.Model
 
         public void Start(String portName, int baudRate)
         {
+            AppLogger.Instance.Info("Start: porta=" + portName + ", baud=" + baudRate);
             this.isRunning = true;
             this.currentPortName = portName;
             this.baudRate = baudRate;
@@ -200,8 +203,15 @@ namespace IndicadorGefran.Model
                 newPort = SerialPortUtil.Instance.GetSerialPort(this.currentPortName);
                 ExecuteInitializationProtocol(newPort, this.baudRate);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                // Roda a cada tick do reconnectTimer (5ms): so loga quando o motivo muda, senao viraria spam.
+                String failure = ex.GetType().Name + ": " + ex.Message;
+                if (failure != this.lastConnectFailure)
+                {
+                    this.lastConnectFailure = failure;
+                    AppLogger.Instance.Warn("Falha ao conectar (tentando novamente): " + failure);
+                }
                 TryClosePort(newPort);
                 return;
             }
@@ -211,6 +221,7 @@ namespace IndicadorGefran.Model
                 TryClosePort(newPort);
                 return;
             }
+            this.lastConnectFailure = null;
             this.port = newPort;
             this.SetConnectionState(IndicatorConnectionState.Connected);
         }
@@ -251,6 +262,7 @@ namespace IndicadorGefran.Model
             }
             catch (Exception ex)
             {
+                AppLogger.Instance.Warn("Conexao perdida lendo display: " + ex.GetType().Name + ": " + ex.Message);
                 HandleConnectionLost();
                 throw ex;
             }
@@ -270,6 +282,7 @@ namespace IndicadorGefran.Model
             }
             catch (Exception ex)
             {
+                AppLogger.Instance.Warn("Conexao perdida lendo contagem absoluta: " + ex.GetType().Name + ": " + ex.Message);
                 HandleConnectionLost();
                 throw ex;
             }
@@ -286,7 +299,9 @@ namespace IndicadorGefran.Model
             SelectSlave(port, 1);
             byte[] response = ReadAddress(port, baudRate, GEFRAN_ADDRESS, 6);
             String responseString = Encoding.ASCII.GetString(response.Reverse().ToArray());
-            if (!responseString.Equals("GEFRAN")) throw new InvalidResponseFromIndicatorException();
+            if (!responseString.Equals("GEFRAN"))
+                throw new InvalidResponseFromIndicatorException(String.Format(
+                    "Esperado: \"GEFRAN\"; lido: [{0}] (\"{1}\")", FormatHex(response), responseString));
         }
 
         private void OpenPort(ISerialPortTransport port, int baudRate, Parity parity)
@@ -363,7 +378,9 @@ namespace IndicadorGefran.Model
             //    builder.Append(response[i].ToString(" "));
             //}
             //((App)Application.Current).ShowInfo(builder.ToString());
-            if (!response.SequenceEqual(expectedResponse)) throw new InvalidResponseFromIndicatorException();
+            if (!response.SequenceEqual(expectedResponse))
+                throw new InvalidResponseFromIndicatorException(String.Format(
+                    "Esperado: [{0}]; lido: [{1}]", FormatHex(expectedResponse), FormatHex(response)));
         }
 
         private void SendCommandRead(ISerialPortTransport port)
@@ -413,21 +430,33 @@ namespace IndicadorGefran.Model
         {
             byte[] response = new byte[numBytes];
             bool[] parityErrors = new bool[numBytes];
+            int received = 0;
+            Stopwatch waited = new Stopwatch();
             try
             {
                 for (int i = 0; i < numBytes; i++)
                 {
                     bool parityError;
+                    waited.Restart();
                     response[i] = port.ReadByte(out parityError);
                     parityErrors[i] = parityError;
+                    received++;
                 }
                 SerialPortLogger.Instance.LogBytesReceived(port, response, parityErrors);
                 return response;
             }
             catch (TimeoutException)
             {
-                throw new NoResponseFromIndicatorException();
+                throw new NoResponseFromIndicatorException(String.Format(
+                    "Aguardou {0} ms (timeout de {1} ms) pelo byte {2} de {3}; recebido ate agora: [{4}]",
+                    waited.ElapsedMilliseconds, port.ReadTimeout, received + 1, numBytes,
+                    FormatHex(response.Take(received).ToArray())));
             }
+        }
+
+        private static String FormatHex(byte[] bytes)
+        {
+            return String.Join(" ", bytes.Select(b => b.ToString("X2")));
         }
 
         // Envia byte a byte, esperando a transmissao terminar e um intervalo apos cada um (inclusive o ultimo),
@@ -472,6 +501,7 @@ namespace IndicadorGefran.Model
 
         public void Stop()
         {
+            AppLogger.Instance.Info("Stop");
             this.isRunning = false;
             ISerialPortTransport p = this.port;
             this.port = null;
