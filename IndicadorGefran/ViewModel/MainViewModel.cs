@@ -46,7 +46,7 @@ namespace IndicadorGefran.ViewModel
                 version.Major, version.Minor, version.MinorRevision);
 
             RefreshSerialPortNames();
-            this.selectedBaudRate = this.BaudRates[1];
+            this.selectedBaudRate = 19200;
             RefreshConnectionDependentState();
             RefreshStorageIntervalText();
 
