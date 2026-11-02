@@ -38,9 +38,9 @@ namespace IndicadorGefran
         public ISerialPortTransport GetSerialPort(String portName)
         {
             String transport = ConfigurationManager.AppSettings["SerialTransport"];
-            if (String.Equals(transport, "Win32", StringComparison.OrdinalIgnoreCase))
-                return new Win32SerialPortTransport(portName);
-            return new ManagedSerialPortTransport(portName);
+            if (String.Equals(transport, "Managed", StringComparison.OrdinalIgnoreCase))
+                return new ManagedSerialPortTransport(portName);
+            return new Win32SerialPortTransport(portName);
         }
 
         public Boolean IsPortAvailable(String portName)
